@@ -1,6 +1,7 @@
 import cPickle as pickle
 import sys
 import warnings
+import numpy as np
 
 
 class GT:
@@ -26,6 +27,28 @@ class GT:
 
         self.__min_frame = 0
         self.__max_frame = sys.maxint
+
+        self.__permutation = {}
+        for id_ in range(num_ids):
+            self.__permutation[id_] = id_
+
+    def set_permutation(self, data):
+        """
+        given list of tuples (frame, id, y, x)
+        set internal permutation to fit given experiment
+
+        Args:
+            data:
+
+        Returns:
+
+        """
+
+        for frame, id_, y, x in data:
+            original_id_ = self.match_gt(frame, y, x)
+            self.__permutation[id_] = original_id_
+
+
 
     def get_num_ids(self):
         return self.__num_ids
@@ -126,10 +149,18 @@ class GT:
 
         print
 
+    def match_gt(self, frame, y, x, limit_distance=np.inf):
+        p = self.get_clear_positions(frame)
 
-    def match_gt(self, frame, position):
-        # TODO:
-        pass
+        best_dist = np.inf
+        best_id = None
+        for id_, (y_, x_) in enumerate(p):
+            d = ((y-y_)**2 + (x-x_)**2)
+            if best_dist < d:
+                best_dist = d
+                best_id = id_
+
+        return best_id
 
     def import_from_txt(self):
         # TODO:
