@@ -16,13 +16,13 @@ class GT:
             2..N - impreciese, inside collision, number signifies the num of ants in collision, it is also segmentation dependent...
 
     """
-    def __init__(self, num_ids=0, num_frames=0, version=1.0):
+    def __init__(self, num_ids=0, num_frames=0, version=1.0, precision=None):
         self.__num_ids = num_ids
 
         self.__positions = {}
         self.__behavior = {}
 
-        self.__precision = 0
+        self.__precision = precision
         self.__gt_version = version
 
         self.__min_frame = 0
@@ -47,8 +47,6 @@ class GT:
         for frame, id_, y, x in data:
             original_id_ = self.match_gt(frame, y, x)
             self.__permutation[id_] = original_id_
-
-
 
     def get_num_ids(self):
         return self.__num_ids
@@ -79,16 +77,18 @@ class GT:
         if frame in self.__positions:
             for i, (y, x, type) in enumerate(self.__positions[frame]):
                 if type == 1:
-                    p[i] = (y, x)
+                    p[self.__permutation[i]] = (y, x)
 
         return p
 
-    def get_position(self, frame, id):
-        return self.get_clear_positions(frame)[id]
+    def get_position(self, frame, id_):
+        id_ = self.__permutation[id_]
+        return self.get_clear_positions(frame)[id_]
 
-    def set_position(self, frame, id, y, x, type=1):
+    def set_position(self, frame, id_, y, x, type=1):
         self.__set_frame(self.__positions, frame)
-        self.__positions[frame][id] = (y, x, type)
+        id_ = self.__permutation[id_]
+        self.__positions[frame][id_] = (y, x, type)
 
     def save(self):
         # TODO: rename previous with name_BACKUP_DATE
@@ -149,10 +149,28 @@ class GT:
 
         print
 
-    def match_gt(self, frame, y, x, limit_distance=np.inf):
+    def match_gt(self, frame, y, x, limit_distance=None):
+        """
+        if self.__precision is not None use this as max distance for match
+
+        return
+        Args:
+            frame:
+            y:
+            x:
+            limit_distance: float >= 0 if provided it overrides self.__precision
+
+        Returns:
+            id, (y, x)
+            None, None if no match
+        """
         p = self.get_clear_positions(frame)
 
-        best_dist = np.inf
+        if self.__precision is not None:
+            best_dist = self.__precision
+        if limit_distance is not None:
+            best_dist = limit_distance
+
         best_id = None
         for id_, (y_, x_) in enumerate(p):
             d = ((y-y_)**2 + (x-x_)**2)
@@ -160,7 +178,7 @@ class GT:
                 best_dist = d
                 best_id = id_
 
-        return best_id
+        return best_id, (p[best_id][0], p[best_id][1])
 
     def import_from_txt(self):
         # TODO:
