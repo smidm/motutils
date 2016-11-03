@@ -58,15 +58,15 @@ class GT:
         return self.__num_ids
 
     def load(self, path):
-        try:
-            with open(path, 'rb') as f:
-                tmp_dict = pickle.load(f)
+        # try:
+        with open(path, 'rb') as f:
+            tmp_dict = pickle.load(f)
 
-            self.__dict__.update(tmp_dict.__dict__)
+        self.__dict__.update(tmp_dict)
 
-            print "GT was sucessfully loaded from ", path
-        except:
-            print "GT was not loaded ", path
+        print "GT was sucessfully loaded from ", path
+        # except:
+        #     print "GT was not loaded ", path
 
     def get_all_ids_around(self, frame, position, max_distance=-1):
         if max_distance < 0:
@@ -83,9 +83,23 @@ class GT:
     def get_clear_positions(self, frame):
         p = [None for _ in range(self.__num_ids)]
         if frame in self.__positions:
-            for i, (y, x, type) in enumerate(self.__positions[frame]):
-                if type == 1:
-                    p[self.__permutation[i]] = (y, x)
+            for i, it in enumerate(self.__positions[frame]):
+                if it is not None:
+                    y, x, type_ = it
+                    if type_ == 1:
+                        p[self.__permutation[i]] = (y, x)
+
+
+        return p
+
+    def get_clear_rois(self, frame):
+        p = [None for _ in range(self.__num_ids)]
+        if frame in self.__rois:
+            for i, it in enumerate(self.__rois[frame]):
+                if it is not None:
+                    y1, x1, y2, x2, type_  = it
+                    if type_ == 1:
+                        p[self.__permutation[i]] = (y1, x1, y2, x2)
 
         return p
 
@@ -93,10 +107,10 @@ class GT:
         id_ = self.__permutation[id_]
         return self.get_clear_positions(frame)[id_]
 
-    def set_position(self, frame, id_, y, x, type=1):
+    def set_position(self, frame, id_, y, x, type_=1):
         self.__set_frame(self.__positions, frame)
         id_ = self.__permutation[id_]
-        self.__positions[frame][id_] = (y, x, type)
+        self.__positions[frame][id_] = (y, x, type_)
 
     def save(self, path, make_copy=True):
         import os
@@ -107,7 +121,7 @@ class GT:
             os.rename(path, path[:-4]+'_'+dt+'.pkl')
 
         with open(path, 'w') as f:
-            pickle.dump(self, f)
+            pickle.dump(self.__dict__, f, -1)
 
         pass
 
@@ -166,6 +180,7 @@ class GT:
                     if len(t.P) == 1:
                         id_ = list(t.P)[0]
                         self.__positions[frame][id_] = (r.centroid()[0], r.centroid()[1], 1)
+                        self.__rois[frame][id_] = (y1, x1, y2, x2, 1)
                     else:
                         for id_ in list(t.P):
                             self.__positions[frame][id_] = (r.centroid()[0], r.centroid()[1], len(t.P))
@@ -232,7 +247,10 @@ if __name__ == '__main__':
     p.load('/Users/flipajs/Documents/wd/zebrafish')
 
     gt = GT()
-    gt.build_from_PN(p)
+    # gt.build_from_PN(p)
+
+    gt.load('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
     gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
 
     print gt.get_clear_positions(100)
+    print gt.get_clear_rois(100)
