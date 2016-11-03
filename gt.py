@@ -229,10 +229,10 @@ class GT:
 if __name__ == '__main__':
     from core.project.project import Project
     p = Project()
-    p.load('/Users/flipajs/Documents/wd/zebrafish')
+    p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_')
 
     gt = GT()
     gt.build_from_PN(p)
-    gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
+    gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
 
     print gt.get_clear_positions(100)
