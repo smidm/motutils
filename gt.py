@@ -1,7 +1,6 @@
 import cPickle as pickle
 import sys
 import warnings
-import numpy as np
 
 
 class GT:
@@ -10,7 +9,7 @@ class GT:
 
     self.__positions[frame][id] in format (y, x, type)
 
-    format (y, x, type)
+    self.__rois[frame][id] in format (y1, x1, y2, x2, type), where (y1, x1) is top left corner, (y2, x2) is bottom right.
 
     type =  1 - clear, precise
             2..N - impreciese, inside collision, number signifies the num of ants in collision, it is also segmentation dependent...
@@ -20,6 +19,7 @@ class GT:
         self.__num_ids = num_ids
 
         self.__positions = {}
+        self.__rois = {}
         self.__behavior = {}
 
         self.__precision = precision
@@ -29,8 +29,14 @@ class GT:
         self.__max_frame = sys.maxint
 
         self.__permutation = {}
-        for id_ in range(num_ids):
+
+        self.__init_permutations()
+
+    def __init_permutations(self):
+        self.__permutation = {}
+        for id_ in range(self.__num_ids):
             self.__permutation[id_] = id_
+
 
     def set_permutation(self, data):
         """
@@ -54,7 +60,9 @@ class GT:
     def load(self, path):
         try:
             with open(path, 'rb') as f:
-                self = pickle.load(f)
+                tmp_dict = pickle.load(f)
+
+            self.__dict__.update(tmp_dict.__dict__)
 
             print "GT was sucessfully loaded from ", path
         except:
@@ -120,6 +128,7 @@ class GT:
 
         self.__min_frame = frame_limits_start
         self.__max_frame = frame_limits_end
+        self.__num_ids = len(project.animals)
 
         num_animals = len(project.animals)
 
@@ -128,7 +137,8 @@ class GT:
         print_progress(i, l, prefix='Progress:', suffix='Complete', barLength=50)
 
         for frame in range(frame_limits_start, frame_limits_end):
-            self.__positions[frame] = [None for i in range(len(project.animals))]
+            self.__positions[frame] = [None for i in range(self.__num_ids)]
+            self.__rois[frame] = [None for i in range(self.__num_ids)]
 
         for t in project.chm.chunk_gen():
             print_progress(i, l, prefix='Progress:', suffix='Complete', barLength=50)
@@ -136,11 +146,16 @@ class GT:
 
             if len(t.P.intersection(t.N)):
                 warnings.warn("PN intersection is not empty! tracklet: "+str(t)+" P: "+str(t.P)+" N:"+str(t.N))
+
             # is decided
             elif len(t.P.union(t.N)) == num_animals:
                 rch = RegionChunk(t, project.gm, project.rm)
                 for r in rch.regions_gen():
                     frame = r.frame()
+                    roi = r.roi()
+
+                    y1, x1 = roi.top_left_corner()
+                    y2, x2 = roi.bottom_right_corner()
 
                     if frame_limits_start > frame:
                         continue
@@ -154,7 +169,9 @@ class GT:
                     else:
                         for id_ in list(t.P):
                             self.__positions[frame][id_] = (r.centroid()[0], r.centroid()[1], len(t.P))
+                            self.__rois[frame][id_] = (y1, x1, y2, x2, len(t.P))
 
+        self.__init_permutations()
         print
 
     def match_gt(self, frame, y, x, limit_distance=None):
@@ -217,3 +234,5 @@ if __name__ == '__main__':
     gt = GT()
     gt.build_from_PN(p)
     gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
+
+    print gt.get_clear_positions(100)
