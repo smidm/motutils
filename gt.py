@@ -54,7 +54,7 @@ class GT:
     def load(self, path):
         try:
             with open(path, 'rb') as f:
-                self._gt = pickle.load(f)
+                self = pickle.load(f)
 
             print "GT was sucessfully loaded from ", path
         except:
@@ -90,9 +90,17 @@ class GT:
         id_ = self.__permutation[id_]
         self.__positions[frame][id_] = (y, x, type)
 
-    def save(self):
-        # TODO: rename previous with name_BACKUP_DATE
-        # TODO: save
+    def save(self, path, make_copy=True):
+        import os
+        import datetime
+
+        if make_copy:
+            dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            os.rename(path, path[:-4]+'_'+dt+'.pkl')
+
+        with open(path, 'w') as f:
+            pickle.dump(self, f)
+
         pass
 
     def build_from_PN(self, project, frame_limits_start=0, frame_limits_end=-1):
@@ -208,3 +216,4 @@ if __name__ == '__main__':
 
     gt = GT()
     gt.build_from_PN(p)
+    gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
