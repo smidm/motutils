@@ -245,8 +245,13 @@ class GT:
 if __name__ == '__main__':
     from core.project.project import Project
     p = Project()
-    p.load('/Users/flipajs/Documents/wd/FERDA/Cam2_')
+    p.load('/Users/flipajs/Documents/wd/GT/Cam2')
+    # p.GT_file = '/Users/flipajs/Documents/dev/ferda/data/GT/Cam2_sparse.pkl'
+    # p.save()
 
+    # gt = GT()
+    # gt.build_from_PN(p)
+    # gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
 
     # gt = GT()
     # gt.build_from_PN(p)
