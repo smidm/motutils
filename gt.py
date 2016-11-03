@@ -117,8 +117,9 @@ class GT:
         import datetime
 
         if make_copy:
-            dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            os.rename(path, path[:-4]+'_'+dt+'.pkl')
+            if os.path.exists(path):
+                dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                os.rename(path, path[:-4]+'_'+dt+'.pkl')
 
         with open(path, 'w') as f:
             pickle.dump(self.__dict__, f, -1)
@@ -244,13 +245,14 @@ class GT:
 if __name__ == '__main__':
     from core.project.project import Project
     p = Project()
-    p.load('/Users/flipajs/Documents/wd/zebrafish')
+    p.load('/Users/flipajs/Documents/wd/FERDA/Cam2_')
 
-    gt = GT()
+
+    # gt = GT()
     # gt.build_from_PN(p)
-
-    gt.load('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
-    gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
-
-    print gt.get_clear_positions(100)
-    print gt.get_clear_rois(100)
+    #
+    # # gt.load('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
+    # gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
+    #
+    # print gt.get_clear_positions(100)
+    # print gt.get_clear_rois(100)
