@@ -241,6 +241,18 @@ class GT:
         # TODO:
         pass
 
+    def for_clearmetrics(self, frame_limits_start=0, frame_limits_end=-1):
+        gt = {}
+
+        if frame_limits_end < 0:
+            frame_limits_end = self.__max_frame
+
+        for frame in range(frame_limits_start, frame_limits_end):
+            gt[frame] = list(self.get_clear_positions(frame))
+
+        return gt
+
+
 
 if __name__ == '__main__':
     from core.project.project import Project
