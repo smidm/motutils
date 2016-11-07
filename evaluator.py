@@ -10,16 +10,17 @@ class Evaluator:
         self.__clearmetrics = None
 
 
-    def evaluate_FERDA(self, project):
-        from core.project.export import ferda_single_trajectories_dict
+    def evaluate_FERDA(self, project, frame_limits_start=0, frame_limits_end=-1):
+        from core.project.export import ferda_trajectories_dict
         print "PREPARING trajectories"
-        single_trajectories = ferda_single_trajectories_dict(project)
+        single_trajectories = ferda_trajectories_dict(project, frame_limits_start=frame_limits_start,
+                                                      frame_limits_end=frame_limits_end)
 
         # TODO: gt. set permutation
-        self.evaluate(single_trajectories)
+        self.evaluate(single_trajectories, frame_limits_start=0, frame_limits_end=frame_limits_end)
 
 
-    def evaluate(self, data):
+    def evaluate(self, data, frame_limits_start=0, frame_limits_end=-1):
         """
         data should be in the form as clearmetrics define,
         data = {frame1: [val1, val2, val3],
@@ -35,7 +36,7 @@ class Evaluator:
         # TODO: load from config
         dist_threshold = 10
         print "Preparing GT"
-        gt = self.__gt.for_clearmetrics()
+        gt = self.__gt.for_clearmetrics(frame_limits_start=frame_limits_start, frame_limits_end=frame_limits_end)
         print "evaluating"
         self.__clearmetrics = ClearMetrics(gt, data, dist_threshold)
         self.__clearmetrics.match_sequence()
@@ -78,4 +79,4 @@ if __name__ == '__main__':
     gt.load(p.GT_file)
 
     ev = Evaluator(None, gt)
-    ev.evaluate_FERDA(p)
+    ev.evaluate_FERDA(p, frame_limits_end=4498)

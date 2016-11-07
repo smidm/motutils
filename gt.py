@@ -89,6 +89,15 @@ class GT:
                     if type_ == 1:
                         p[self.__permutation[i]] = (y, x)
 
+        return p
+
+    def get_positions(self, frame):
+        p = [None for _ in range(self.__num_ids)]
+        if frame in self.__positions:
+            for i, it in enumerate(self.__positions[frame]):
+                if it is not None:
+                    y, x, _ = it
+                    p[self.__permutation[i]] = (y, x)
 
         return p
 
@@ -161,12 +170,13 @@ class GT:
 
             if len(t.P.intersection(t.N)):
                 warnings.warn("PN intersection is not empty! tracklet: "+str(t)+" P: "+str(t.P)+" N:"+str(t.N))
-
             # is decided
-            elif len(t.P.union(t.N)) == num_animals:
+            # elif len(t.P.union(t.N)) == num_animals:
+            else:
                 rch = RegionChunk(t, project.gm, project.rm)
                 for r in rch.regions_gen():
                     frame = r.frame()
+
                     roi = r.roi()
 
                     y1, x1 = roi.top_left_corner()
@@ -183,7 +193,7 @@ class GT:
                         self.__positions[frame][id_] = (r.centroid()[0], r.centroid()[1], 1)
                         self.__rois[frame][id_] = (y1, x1, y2, x2, 1)
                     else:
-                        for id_ in list(t.P):
+                        for id_ in list(set(range(num_animals)) - t.N):
                             self.__positions[frame][id_] = (r.centroid()[0], r.centroid()[1], len(t.P))
                             self.__rois[frame][id_] = (y1, x1, y2, x2, len(t.P))
 
@@ -249,7 +259,7 @@ class GT:
 
         for frame in range(frame_limits_start, frame_limits_end):
             gt[frame] = []
-            for it in self.get_clear_positions(frame):
+            for it in self.get_positions(frame):
                 if it is not None:
                     it = np.array(it)
 
@@ -263,12 +273,12 @@ if __name__ == '__main__':
     from core.project.project import Project
     p = Project()
     p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_')
-    # p.GT_file = '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl'
+    p.GT_file = '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl'
     # p.save()
 
-    # gt = GT()
-    # gt.build_from_PN(p)
-    # gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
+    gt = GT()
+    gt.build_from_PN(p)
+    gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
 
     # gt = GT()
     # gt.build_from_PN(p)
