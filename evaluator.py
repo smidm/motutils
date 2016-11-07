@@ -1,5 +1,6 @@
 from gt import GT
 from utils.clearmetrics.clearmetrics.clearmetrics import ClearMetrics
+import numpy as np
 
 
 class Evaluator:
@@ -15,6 +16,7 @@ class Evaluator:
         single_trajectories = ferda_single_trajectories_dict(project, frame_limits_end=30)
 
         # TODO: gt. set permutation
+        single_trajectories[1][1] = None
         self.evaluate(single_trajectories)
 
 
@@ -45,20 +47,16 @@ class Evaluator:
         pass
 
     def print_stats(self, float_precission=3):
-        evaluation = [self.__clearmetrics.get_mota(),
-                      self.__clearmetrics.get_motp(),
-                      self.__clearmetrics.get_fn_count(),
-                      self.__clearmetrics.get_fp_count(),
-                      self.__clearmetrics.get_mismatches_count(),
-                      self.__clearmetrics.get_object_count(),
-                      self.__clearmetrics.get_matches_count()]
-
-        # evaluation = np.array(evaluation)
-
-        print 'MOTA, MOTP, FN, FP, mismatches, objects, matches'
-
-        print evaluation
-
+        print "_____________________________"
+        print "|--Clearmetrics statistics--|"
+        print ("| MOTA: \t\t{:."+str(float_precission)+"%}").format(self.__clearmetrics.get_mota())
+        print ("| MOTP: \t\t{:."+str(float_precission)+"}").format(self.__clearmetrics.get_motp())
+        print ("| #FN: \t\t\t{:}").format(self.__clearmetrics.get_fn_count())
+        print ("| #FP: \t\t\t{:}").format(self.__clearmetrics.get_fp_count())
+        print ("| #mismatches: \t{:}").format(self.__clearmetrics.get_mismatches_count())
+        print ("| #objects: \t{:}").format(self.__clearmetrics.get_object_count())
+        print ("| #matches: \t{:}").format(self.__clearmetrics.get_matches_count())
+        print "|___________________________|"
 
 
 if __name__ == '__main__':
