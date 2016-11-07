@@ -250,8 +250,10 @@ class GT:
         for frame in range(frame_limits_start, frame_limits_end):
             gt[frame] = []
             for it in self.get_clear_positions(frame):
-                gt[frame].append(np.array(it))
-            # gt[frame] = list(self.get_clear_positions(frame))
+                if it is not None:
+                    it = np.array(it)
+
+                gt[frame].append(it)
 
         return gt
 

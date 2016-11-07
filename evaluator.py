@@ -1,5 +1,5 @@
 from gt import GT
-from utils.clearmetrics.clearmetrics.clearmetrics import ClearMetrics
+from utils.clearmetrics.clearmetrics import ClearMetrics
 import numpy as np
 
 
@@ -13,10 +13,9 @@ class Evaluator:
     def evaluate_FERDA(self, project):
         from core.project.export import ferda_single_trajectories_dict
         print "PREPARING trajectories"
-        single_trajectories = ferda_single_trajectories_dict(project, frame_limits_end=30)
+        single_trajectories = ferda_single_trajectories_dict(project)
 
         # TODO: gt. set permutation
-        single_trajectories[1][1] = None
         self.evaluate(single_trajectories)
 
 
@@ -36,7 +35,7 @@ class Evaluator:
         # TODO: load from config
         dist_threshold = 10
         print "Preparing GT"
-        gt = self.__gt.for_clearmetrics(frame_limits_end=30)
+        gt = self.__gt.for_clearmetrics()
         print "evaluating"
         self.__clearmetrics = ClearMetrics(gt, data, dist_threshold)
         self.__clearmetrics.match_sequence()
@@ -56,6 +55,16 @@ class Evaluator:
         print ("| #mismatches: \t{:}").format(self.__clearmetrics.get_mismatches_count())
         print ("| #objects: \t{:}").format(self.__clearmetrics.get_object_count())
         print ("| #matches: \t{:}").format(self.__clearmetrics.get_matches_count())
+        print "| "
+        print "| legend: "
+        print "| \tMOTA - Accuracy"
+        print "| \tMOTP - precission"
+        print "| \tFN: - lost"
+        print "| \tmismatches - num of id swaps"
+        print "| \t\t e.g."
+        print "| \t\t\t _____ ...."
+        print "| \t\t\t .....X____"
+        print "| \t\t\t generates 2 mismatches"
         print "|___________________________|"
 
 
