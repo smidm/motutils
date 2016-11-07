@@ -44,7 +44,7 @@ class Evaluator:
     def get_FP(self):
         pass
 
-    def print_stats(self):
+    def print_stats(self, float_precission=3):
         evaluation = [self.__clearmetrics.get_mota(),
                       self.__clearmetrics.get_motp(),
                       self.__clearmetrics.get_fn_count(),
@@ -53,7 +53,10 @@ class Evaluator:
                       self.__clearmetrics.get_object_count(),
                       self.__clearmetrics.get_matches_count()]
 
+        # evaluation = np.array(evaluation)
+
         print 'MOTA, MOTP, FN, FP, mismatches, objects, matches'
+
         print evaluation
 
 
