@@ -50,9 +50,27 @@ class GT:
 
         """
 
+        self.__permutation = self.get_permutation(data)
+
+    def get_permutation(self, data):
+        perm = {}
         for frame, id_, y, x in data:
-            original_id_ = self.match_gt(frame, y, x)
-            self.__permutation[id_] = original_id_
+            original_id_, _ = self.match_gt(frame, y, x)
+            perm[id_] = original_id_
+
+        return perm
+
+    def permute(self, data):
+        if isinstance(data, list):
+            new_data = [None for _ in range(len(data))]
+            for i, it in enumerate(data):
+                new_data[self.__permutation[i]] = it
+
+            return new_data
+        elif isinstance(data, int):
+            return self.__permutation[data]
+        else:
+            return None
 
     def get_num_ids(self):
         return self.__num_ids
@@ -217,19 +235,33 @@ class GT:
         """
         p = self.get_clear_positions(frame)
 
+        best_dist = np.inf
         if self.__precision is not None:
             best_dist = self.__precision
         if limit_distance is not None:
             best_dist = limit_distance
 
         best_id = None
-        for id_, (y_, x_) in enumerate(p):
-            d = ((y-y_)**2 + (x-x_)**2)
-            if best_dist < d:
+        for id_, data in enumerate(p):
+            if data is None:
+                continue
+            else:
+                y_, x_ = data
+
+            d = ((y-y_)**2 + (x-x_)**2)**0.5
+            if d < best_dist:
                 best_dist = d
                 best_id = id_
 
-        return best_id, (p[best_id][0], p[best_id][1])
+        if best_id is None:
+            return None, (-1, -1)
+        else:
+            best_id_ = best_id
+            # for key, val in self.__permutation.iteritems():
+            #     if best_id == val:
+            #         best_id_ = key
+
+        return best_id_, (p[best_id][0], p[best_id][1])
 
     def import_from_txt(self):
         # TODO:
@@ -272,13 +304,14 @@ class GT:
 if __name__ == '__main__':
     from core.project.project import Project
     p = Project()
-    p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_')
-    p.GT_file = '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl'
-    # p.save()
+    # p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_')
+    p.load('/Users/flipajs/Documents/wd/zebrafish')
+    p.GT_file = '/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl'
+    p.save()
 
     gt = GT()
     gt.build_from_PN(p)
-    gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
+    gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
 
     # gt = GT()
     # gt.build_from_PN(p)

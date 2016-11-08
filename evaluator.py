@@ -34,7 +34,7 @@ class Evaluator:
         """
 
         # TODO: load from config
-        dist_threshold = 10
+        dist_threshold = 30
         print "Preparing GT"
         gt = self.__gt.for_clearmetrics(frame_limits_start=frame_limits_start, frame_limits_end=frame_limits_end)
         print "evaluating"
@@ -47,13 +47,15 @@ class Evaluator:
         pass
 
     def print_stats(self, float_precission=3):
+        mismatches = self.__clearmetrics.get_mismatches_count()
+
         print "_____________________________"
         print "|--Clearmetrics statistics--|"
         print ("| MOTA: \t\t{:."+str(float_precission)+"%}").format(self.__clearmetrics.get_mota())
         print ("| MOTP: \t\t{:."+str(float_precission)+"}").format(self.__clearmetrics.get_motp())
         print ("| #FN: \t\t\t{:}").format(self.__clearmetrics.get_fn_count())
         print ("| #FP: \t\t\t{:}").format(self.__clearmetrics.get_fp_count())
-        print ("| #mismatches: \t{:}").format(self.__clearmetrics.get_mismatches_count())
+        print ("| #mismatches: \t{:}").format(mismatches)
         print ("| #objects: \t{:}").format(self.__clearmetrics.get_object_count())
         print ("| #matches: \t{:}").format(self.__clearmetrics.get_matches_count())
         print "| "
@@ -68,15 +70,58 @@ class Evaluator:
         print "| \t\t\t generates 2 mismatches"
         print "|___________________________|"
 
+    def evaluate_idtracker(self, file, frame_limits_start=0, frame_limits_end=-1):
+        import scipy.io as sio
+        data = sio.loadmat(file)
+
+        measurements = {}
+        for frame, items in enumerate(data['trajectories']):
+            measurements[frame] = []
+            for it in items:
+                if it is None:
+                    measurements[frame].append(None)
+                else:
+                    # id tracker output definition
+                    y = it[1]
+                    x = it[0]
+                    measurements[frame].append(np.array((y, x)))
+
+        # TODO: do it better for videosequences where there is an interaction in first frame
+        frame = 0
+        permutation_data = []
+        for id_, it in enumerate(measurements[frame]):
+            permutation_data.append((frame, id_, it[0], it[1]))
+
+        self.__gt.set_permutation(permutation_data)
+
+        self.evaluate(measurements, frame_limits_start=0, frame_limits_end=frame_limits_end)
+
+        self.detect_idswap(measurements)
+
+    def detect_idswap(self, measurements):
+        m_i = 0
+        for frame in measurements:
+            data = self.__gt.permute(measurements[frame])
+            for id_, it in enumerate(data):
+                y, x = it[0], it[1]
+                match_id_, _ = self.__gt.match_gt(frame, y, x, limit_distance=30)
+                id_ = self.__gt.permute(id_)
+                if match_id_ is not None and id_ != match_id_:
+                    m_i += 1
+                    print "MISMATCH: #{:}, frame: {:}, id: {:}, gt_id: {:}".format(m_i, frame, id_, match_id_)
+
 
 if __name__ == '__main__':
     from core.project.project import Project
 
-    p = Project()
-    p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_')
-
+    # p = Project()
+    # p.load('/Users/flipajs/Documents/wd/zebrafish')
+    #
     gt = GT()
-    gt.load(p.GT_file)
+    # gt.load(p.GT_file)
+    gt.load('/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
 
     ev = Evaluator(None, gt)
-    ev.evaluate_FERDA(p, frame_limits_end=4498)
+    # ev.evaluate_FERDA(p, frame_limits_end=4498)
+    # ev.evaluate_FERDA(p, frame_limits_end=14998)
+    ev.evaluate_idtracker('/Users/flipajs/Dropbox/FERDA/idTracker_Cam1/trajectories_nogaps.mat')
