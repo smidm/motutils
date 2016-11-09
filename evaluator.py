@@ -119,9 +119,10 @@ if __name__ == '__main__':
     #
     gt = GT()
     # gt.load(p.GT_file)
-    gt.load('/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
+    gt.load('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
 
     ev = Evaluator(None, gt)
     # ev.evaluate_FERDA(p, frame_limits_end=4498)
     # ev.evaluate_FERDA(p, frame_limits_end=14998)
-    ev.evaluate_idtracker('/Users/flipajs/Dropbox/FERDA/idTracker_Cam1/trajectories_nogaps.mat')
+    ev.evaluate_idtracker('/Volumes/Seagate Expansion Drive/FERDA-data/idTracker-5Zebrafish/trajectories.mat')
+    # ev.evaluate_idtracker('/Users/flipajs/Dropbox/FERDA/idTracker_Cam1/trajectories_nogaps.mat')
