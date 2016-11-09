@@ -9,14 +9,23 @@ class Evaluator:
         self.__gt = gt
         self.__clearmetrics = None
 
-
-    def evaluate_FERDA(self, project, frame_limits_start=0, frame_limits_end=-1):
+    def evaluate_FERDA(self, project, frame_limits_start=0, frame_limits_end=-1, permutation_frame=0, step=1):
         from core.project.export import ferda_trajectories_dict
+        from core.graph.region_chunk import RegionChunk
         print "PREPARING trajectories"
         single_trajectories = ferda_trajectories_dict(project, frame_limits_start=frame_limits_start,
-                                                      frame_limits_end=frame_limits_end)
+                                                      frame_limits_end=frame_limits_end, step=step)
 
         # TODO: gt. set permutation
+        permutation_data = []
+        for t in project.chm.chunks_in_frame(permutation_frame):
+            id_ = list(t.P)[0]
+            rch = RegionChunk(t, project.gm, project.rm)
+            c = rch.centroid_in_t(permutation_frame)
+            permutation_data.append((permutation_frame, id_, c[0], c[1]))
+
+        self.__gt.set_permutation(permutation_data)
+
         self.evaluate(single_trajectories, frame_limits_start=0, frame_limits_end=frame_limits_end)
 
 
