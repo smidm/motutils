@@ -119,6 +119,13 @@ class GT:
 
         return p
 
+    def get_clear_positions_dict(self):
+        positions = {}
+        for f in self.__positions.iterkeys():
+            positions[f] = self.get_clear_positions(f)
+
+        return positions
+
     def get_clear_rois(self, frame):
         p = [None for _ in range(self.__num_ids)]
         if frame in self.__rois:
