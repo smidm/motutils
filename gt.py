@@ -306,7 +306,81 @@ class GT:
 
         return gt
 
+    def min_frame(self):
+        return self.__min_frame
 
+    def max_frame(self):
+        return self.__max_frame
+
+    def check_none_occurence(self):
+        print "Checking None occurence"
+        for frame, vals in self.__positions.iteritems():
+            for it in vals:
+                if it is None:
+                    print frame
+
+                # Old way of representing undefined
+                if it[0] < 50 and it[1] < 100:
+                    print "UNDEF POS:", frame
+
+        print "DONE"
+
+    def match_on_data(self, project, max_d=50):
+        from scipy.spatial.distance import cdist
+        from utils.misc import print_progress
+        from itertools import izip
+
+        print "Matching..."
+
+        num_frames = self.max_frame() - self.min_frame()
+
+        not_matched = []
+        match = {}
+        i = 0
+        for frame in range(self.min_frame(), self.max_frame()):
+            match[frame] = [None for _ in range(len(project.animals))]
+
+            # add chunk ids
+            r_t = project.gm.regions_and_t_ids_in_t(frame)
+            regions = [x[0] for x in r_t]
+            ch_ids = [x[1] for x in r_t]
+
+            centroids = np.array([r.centroid() for r in regions])
+            pos = self.__positions[frame]
+            pos = np.array([(x[0], x[1]) for x in pos])
+
+            dists = cdist(pos, centroids)
+            m1_i = np.argmin(dists, axis=1)
+            m1 = dists[range(pos.shape[0]), m1_i]
+
+            for a_id, id_ in enumerate(m1_i):
+                if m1[a_id] > max_d:
+                    # try if inside region...
+                    for r, t_id in izip(regions, ch_ids):
+                        if r.is_inside(pos[a_id], tolerance=5):
+                            match[frame][a_id] = t_id
+                            break
+
+                    if match[frame][a_id] is None:
+                        not_matched.append(frame)
+                else:
+                    match[frame][a_id] = ch_ids[id_]
+
+            # TODO: solve big distances for oversegmented regions
+            # dists[range(pos.shape[0]), m1_i] = np.inf
+            # m2 = np.min(dists, axis=1)
+
+            i += 1
+
+            if i % 10 == 0:
+                print_progress(i, num_frames)
+
+        print "Done.."
+        print "Not matched in frames ", not_matched
+
+
+
+        return match
 
 if __name__ == '__main__':
     from core.project.project import Project
