@@ -325,19 +325,21 @@ class GT:
 
         print "DONE"
 
-    def match_on_data(self, project, max_d=50):
+    def match_on_data(self, project, frames=None, max_d=5):
         from scipy.spatial.distance import cdist
         from utils.misc import print_progress
         from itertools import izip
 
-        print "Matching..."
-
-        num_frames = self.max_frame() - self.min_frame()
+        # num_frames = self.max_frame() - self.min_frame()
 
         not_matched = []
         match = {}
         i = 0
-        for frame in range(self.min_frame(), self.max_frame()):
+
+        if frames is None:
+            frames = range(self.min_frame(), self.max_frame())
+
+        for frame in frames:
             match[frame] = [None for _ in range(len(project.animals))]
 
             # add chunk ids
@@ -372,27 +374,184 @@ class GT:
 
             i += 1
 
-            if i % 10 == 0:
-                print_progress(i, num_frames)
+            # if i % 10 == 0:
+            #     print_progress(i, num_frames)
 
-        print "Done.."
-        print "Not matched in frames ", not_matched
-
-
+        # print "Done.."
+        # print "Not matched in frames ", not_matched
 
         return match
+
+    def tracklet_id_set(self, tracklet, project):
+        """
+
+
+        Args:
+            tracklet:
+            project:
+
+        Returns:
+
+        """
+        match = self.match_on_data(project, range(tracklet.start_frame(project.gm), tracklet.end_frame(project.gm) + 1))
+
+        keys = sorted([k for k in match.iterkeys()])
+        match = [match[k] for k in keys]
+
+        ids = self.__get_ids_from_match(match[0], tracklet.id())
+        if self.test_tracklet_consistency(tracklet, match, ids):
+            return [self.__permutation[id_] for id_ in ids]
+        else:
+            warnings.warn('Tracklet id: {} is inconsistent'.format(tracklet.id()))
+
+        return None
+
+    def __get_ids_from_match(self, match, t_id):
+        return set([id_ for id_, x in enumerate(match) if x == t_id])
+
+    def test_tracklet_consistency(self, tracklet, match, ids=None):
+        if ids is None:
+            ids = self.__get_ids_from_match(match[0], tracklet.id())
+
+        for i in range(1, len(match)):
+            if ids != self.__get_ids_from_match(match[i], tracklet.id()):
+                return False
+
+        return True
+
+    def __match_mapping_possible(self, match, ids):
+        # there is the same tracklet id in match[ids]
+        t_ids = set([match[id_] for id_ in ids])
+        if len(t_ids) != 1:
+            return False
+
+        t_id = list(t_ids)[0]
+        # trackle id is only on match[ids] positions
+        if len(self.__get_ids_from_match(match, t_id)) != len(ids):
+            return False
+
+        return True
+
+    def test_tracklet_max_len(self, tracklet, project):
+        """
+        if any expansions results in tracklet rules violation, tracklet is of max length
+        Returns:
+
+        """
+
+        ids = self.tracklet_id_set(tracklet, project)
+        if ids is None:
+            return False
+
+        frame = tracklet.start_frame(project.gm) - 1
+        if frame > 0:
+            match = [x for x in self.match_on_data(project, [frame]).itervalues()][0]
+            if self.__match_mapping_possible(match, ids):
+                return False
+
+        frame = tracklet.end_frame(project.gm) + 1
+        if frame < self.__max_frame:
+            match = [x for x in self.match_on_data(project, [frame]).itervalues()][0]
+            if self.__match_mapping_possible(match, ids):
+                return False
+
+        return True
+
+    def test_edge(self, tracklet1, tracklet2, project):
+        return self.tracklet_id_set(tracklet1, project) == self.tracklet_id_set(tracklet2, project)
+
+    def project_stats(self, p):
+        num_max_len = 0
+        not_consistent = 0
+
+        not_consistent_list = []
+
+        for t in p.chm.chunk_gen():
+            match = [x for x in self.match_on_data(p, frames=range(t.start_frame(p.gm), t.end_frame(p.gm) + 1)).itervalues()]
+            if not self.test_tracklet_consistency(t, match):
+                not_consistent += 1
+                not_consistent_list.append(t)
+
+            if self.test_tracklet_max_len(t, p):
+                num_max_len += 1
+
+        num_t = len(p.chm)
+        print "#max_len: {}, ({:.2%}, #not consitent: {})".format(num_max_len, num_max_len/float(num_t), not_consistent)
 
 if __name__ == '__main__':
     from core.project.project import Project
     p = Project()
-    # p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_')
-    p.load('/Users/flipajs/Documents/wd/zebrafish')
-    p.GT_file = '/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl'
-    p.save()
+    p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_playground')
+
+    with open(p.working_directory+'/temp/isolation_score.pkl', 'rb') as f:
+    # with open(wd+'/temp/isolation_score.pkl', 'rb') as f:
+    # with open('/Users/flipajs/Documents/wd/FERDA/Cam1_playground/temp/isolation_score.pkl', 'rb') as f:
+        up = pickle.Unpickler(f)
+        p.gm.g = up.load()
+        up.load()
+        chm = up.load()
+        p.chm = chm
+
+    from core.region.region_manager import RegionManager
+    p.rm = RegionManager(p.working_directory+'/temp', db_name='part0_rm.sqlite3')
+    p.gm.rm = p.rm
+
+    p.chm.add_single_vertices_chunks(p, frames=range(4500))
+    p.gm.update_nodes_in_t_refs()
+
+
+    # p.load('/Users/flipajs/Documents/wd/zebrafish')
+    # p.GT_file = '/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl'
+    # p.save()
 
     gt = GT()
-    gt.build_from_PN(p)
-    gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
+    gt.load(p.GT_file)
+
+    epsilons = []
+    edges = []
+    variant = []
+    symmetric = []
+
+    theta = 0.5
+
+    for v in p.gm.active_v_gen():
+        e, es = p.gm.get_2_best_out_edges_appearance_motion_mix(v)
+        if e[1] is not None:
+            e_, es_ = p.gm.get_2_best_in_edges_appearance_motion_mix(e[0].source())
+            if e_[0].target() == e[0].target() or e_[1].target() == e[0].target():
+                symmetric.append(1)
+            else:
+                symmetric.append(0)
+
+            A = es[0]
+            B = es[1]
+            if gt.test_edge(p.gm.get_chunk(e[0].source()), p.gm.get_chunk(e[0].target()), p):
+                eps = (A / theta) - (A + B)
+                variant.append(0)
+            else:
+                eps = (A + B) / ((1/theta) - 1)
+                variant.append(1)
+
+            epsilons.append(eps)
+            edges.append((int(e[0].source()), int(e[0].target())))
+
+    print min(epsilons), max(epsilons)
+
+    with open(p.working_directory+'/temp/epsilons', 'wb') as f:
+        pickle.dump((epsilons, edges, variant), f)
+
+    # gt.project_stats(p)
+
+    # t1 = p.gm.get_chunk(762)
+    # print gt.tracklet_id_set(t1, p)
+    #
+    # t2 = p.gm.get_chunk(784)
+    # print gt.tracklet_id_set(t2, p)
+    #
+    # print gt.tracklet_id_set(p.gm.get_chunk(891), p)
+
+    # gt.build_from_PN(p)
+    # gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
 
     # gt = GT()
     # gt.build_from_PN(p)

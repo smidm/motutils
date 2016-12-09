@@ -17,14 +17,14 @@ class Evaluator:
                                                       frame_limits_end=frame_limits_end, step=step)
 
         # TODO: gt. set permutation
-        permutation_data = []
-        for t in project.chm.chunks_in_frame(permutation_frame):
-            id_ = list(t.P)[0]
-            rch = RegionChunk(t, project.gm, project.rm)
-            c = rch.centroid_in_t(permutation_frame)
-            permutation_data.append((permutation_frame, id_, c[0], c[1]))
-
-        self.__gt.set_permutation(permutation_data)
+        # permutation_data = []
+        # for t in project.chm.chunks_in_frame(permutation_frame):
+        #     id_ = list(t.P)[0]
+        #     rch = RegionChunk(t, project.gm, project.rm)
+        #     c = rch.centroid_in_t(permutation_frame)
+        #     permutation_data.append((permutation_frame, id_, c[0], c[1]))
+        #
+        # self.__gt.set_permutation(permutation_data)
 
         self.evaluate(single_trajectories, frame_limits_start=0, frame_limits_end=frame_limits_end)
 
