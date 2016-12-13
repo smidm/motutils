@@ -325,7 +325,7 @@ class GT:
 
         print "DONE"
 
-    def match_on_data(self, project, frames=None, max_d=5):
+    def match_on_data(self, project, frames=None, max_d=5, match_on='tracklets'):
         from scipy.spatial.distance import cdist
         from utils.misc import print_progress
         from itertools import izip
@@ -343,30 +343,47 @@ class GT:
             match[frame] = [None for _ in range(len(project.animals))]
 
             # add chunk ids
-            r_t = project.gm.regions_and_t_ids_in_t(frame)
-            regions = [x[0] for x in r_t]
-            ch_ids = [x[1] for x in r_t]
+            if match_on=='tracklets':
+                r_t = project.gm.regions_and_t_ids_in_t(frame)
+                regions = [x[0] for x in r_t]
+                ch_ids = [x[1] for x in r_t]
+            else:
+                regions = project.gm.regions_in_t(frame)
 
             centroids = np.array([r.centroid() for r in regions])
             pos = self.__positions[frame]
             pos = np.array([(x[0], x[1]) for x in pos])
 
-            dists = cdist(pos, centroids)
+            try:
+                dists = cdist(pos, centroids)
+            except:
+                print centroids, regions, frame
+
             m1_i = np.argmin(dists, axis=1)
             m1 = dists[range(pos.shape[0]), m1_i]
 
             for a_id, id_ in enumerate(m1_i):
                 if m1[a_id] > max_d:
                     # try if inside region...
-                    for r, t_id in izip(regions, ch_ids):
-                        if r.is_inside(pos[a_id], tolerance=5):
-                            match[frame][a_id] = t_id
-                            break
+                    if match_on == 'tracklet':
+                        for r, t_id in izip(regions, ch_ids):
+                            if r.is_inside(pos[a_id], tolerance=5):
+                                if match_on == 'tracklets':
+                                    match[frame][a_id] = t_id
+                                break
+                    else:
+                        for r in regions:
+                            if r.is_inside(pos[a_id], tolerance=5):
+                                match[frame][a_id] = r.id()
+                                break
 
                     if match[frame][a_id] is None:
                         not_matched.append(frame)
                 else:
-                    match[frame][a_id] = ch_ids[id_]
+                    if match_on == 'tracklet':
+                        match[frame][a_id] = ch_ids[id_]
+                    else:
+                        match[frame][a_id] = regions[id_].id()
 
             # TODO: solve big distances for oversegmented regions
             # dists[range(pos.shape[0]), m1_i] = np.inf
