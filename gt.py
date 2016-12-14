@@ -350,8 +350,13 @@ class GT:
             else:
                 regions = project.gm.regions_in_t(frame)
 
+            if len(regions) == 0:
+                continue
+
             centroids = np.array([r.centroid() for r in regions])
             pos = self.__positions[frame]
+            if None in pos:
+                continue
             pos = np.array([(x[0], x[1]) for x in pos])
 
             try:
@@ -533,12 +538,16 @@ if __name__ == '__main__':
 
     for v in p.gm.active_v_gen():
         e, es = p.gm.get_2_best_out_edges_appearance_motion_mix(v)
+
+        if e[0] is not None and int(e[0].source()) == 2885:
+            print "a"
+
         if e[1] is not None:
-            e_, es_ = p.gm.get_2_best_in_edges_appearance_motion_mix(e[0].source())
-            if e_[0].target() == e[0].target() or e_[1].target() == e[0].target():
-                symmetric.append(1)
-            else:
-                symmetric.append(0)
+            # e_, es_ = p.gm.get_2_best_in_edges_appearance_motion_mix(e[0].source())
+            # if e_[0].target() == e[0].target() or (e_[1] is not None and e_[1].target() == e[0].target()):
+            #     symmetric.append(1)
+            # else:
+            #     symmetric.append(0)
 
             A = es[0]
             B = es[1]
