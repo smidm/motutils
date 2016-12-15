@@ -372,13 +372,13 @@ class GT:
                     # try if inside region...
                     if match_on == 'tracklets':
                         for r, t_id in izip(regions, ch_ids):
-                            if r.is_inside(pos[a_id], tolerance=5):
+                            if r.is_inside(pos[a_id], tolerance=max_d):
                                 if match_on == 'tracklets':
                                     match[frame][a_id] = t_id
                                 break
                     else:
                         for r in regions:
-                            if r.is_inside(pos[a_id], tolerance=5):
+                            if r.is_inside(pos[a_id], tolerance=max_d):
                                 match[frame][a_id] = r.id()
                                 break
 
@@ -425,6 +425,7 @@ class GT:
             return [self.__permutation[id_] for id_ in ids]
         else:
             warnings.warn('Tracklet id: {} is inconsistent'.format(tracklet.id()))
+            print match, ids
 
         return None
 
@@ -503,7 +504,8 @@ class GT:
 if __name__ == '__main__':
     from core.project.project import Project
     p = Project()
-    p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_playground')
+    # p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_playground')
+    p.load('/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground')
 
     with open(p.working_directory+'/temp/isolation_score.pkl', 'rb') as f:
     # with open(wd+'/temp/isolation_score.pkl', 'rb') as f:
@@ -539,9 +541,6 @@ if __name__ == '__main__':
     for v in p.gm.active_v_gen():
         e, es = p.gm.get_2_best_out_edges_appearance_motion_mix(v)
 
-        if e[0] is not None and int(e[0].source()) == 2885:
-            print "a"
-
         if e[1] is not None:
             # e_, es_ = p.gm.get_2_best_in_edges_appearance_motion_mix(e[0].source())
             # if e_[0].target() == e[0].target() or (e_[1] is not None and e_[1].target() == e[0].target()):
@@ -557,6 +556,7 @@ if __name__ == '__main__':
             else:
                 eps = (A + B) / ((1/theta) - 1)
                 variant.append(1)
+
 
             epsilons.append(eps)
             edges.append((int(e[0].source()), int(e[0].target())))
