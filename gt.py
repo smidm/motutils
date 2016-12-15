@@ -438,6 +438,7 @@ class GT:
 
         for i in range(1, len(match)):
             if ids != self.__get_ids_from_match(match[i], tracklet.id()):
+                print "CONSISTENCY I, ", i
                 return False
 
         return True
@@ -505,7 +506,9 @@ if __name__ == '__main__':
     from core.project.project import Project
     p = Project()
     # p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_playground')
-    p.load('/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground')
+    # p.load('/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground')
+    # p.load('/Users/flipajs/Documents/wd/FERDA/Camera3')
+    p.load('/Users/flipajs/Documents/wd/FERDA/Sowbug3')
 
     with open(p.working_directory+'/temp/isolation_score.pkl', 'rb') as f:
     # with open(wd+'/temp/isolation_score.pkl', 'rb') as f:
@@ -520,7 +523,8 @@ if __name__ == '__main__':
     p.rm = RegionManager(p.working_directory+'/temp', db_name='part0_rm.sqlite3')
     p.gm.rm = p.rm
 
-    p.chm.add_single_vertices_chunks(p, frames=range(4500))
+    # p.chm.add_single_vertices_chunks(p, frames=range(4500))
+    p.chm.add_single_vertices_chunks(p, frames=range(5000))
     p.gm.update_nodes_in_t_refs()
 
 
@@ -535,15 +539,12 @@ if __name__ == '__main__':
     edges = []
     variant = []
     symmetric = []
+    AA = []
+    BB = []
 
     theta = 0.5
 
     for v in p.gm.active_v_gen():
-        if int(v) == 11043:
-            print "a"
-        else:
-            continue
-
         e, es = p.gm.get_2_best_out_edges_appearance_motion_mix(v)
 
         if e[1] is not None:
@@ -562,14 +563,15 @@ if __name__ == '__main__':
                 eps = (A + B) / ((1/theta) - 1)
                 variant.append(1)
 
-
+            AA.append(A)
+            BB.append(B)
             epsilons.append(eps)
             edges.append((int(e[0].source()), int(e[0].target())))
 
     print min(epsilons), max(epsilons)
 
-    with open(p.working_directory+'/temp/epsilons', 'wb') as f:
-        pickle.dump((epsilons, edges, variant), f)
+    with open(p.working_directory+'/temp/epsilons.pkl', 'wb') as f:
+        pickle.dump((epsilons, edges, variant, AA, BB), f)
 
     # gt.project_stats(p)
 
