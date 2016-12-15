@@ -539,6 +539,11 @@ if __name__ == '__main__':
     theta = 0.5
 
     for v in p.gm.active_v_gen():
+        if int(v) == 11043:
+            print "a"
+        else:
+            continue
+
         e, es = p.gm.get_2_best_out_edges_appearance_motion_mix(v)
 
         if e[1] is not None:
