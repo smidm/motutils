@@ -370,7 +370,7 @@ class GT:
             for a_id, id_ in enumerate(m1_i):
                 if m1[a_id] > max_d:
                     # try if inside region...
-                    if match_on == 'tracklet':
+                    if match_on == 'tracklets':
                         for r, t_id in izip(regions, ch_ids):
                             if r.is_inside(pos[a_id], tolerance=5):
                                 if match_on == 'tracklets':
@@ -385,7 +385,7 @@ class GT:
                     if match[frame][a_id] is None:
                         not_matched.append(frame)
                 else:
-                    if match_on == 'tracklet':
+                    if match_on == 'tracklets':
                         match[frame][a_id] = ch_ids[id_]
                     else:
                         match[frame][a_id] = regions[id_].id()
