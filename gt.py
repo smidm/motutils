@@ -544,8 +544,16 @@ if __name__ == '__main__':
 
     theta = 0.5
 
+    out_t = 0
+    test_t = 0
+
+
+    import time
+
     for v in p.gm.active_v_gen():
+        t = time.time()
         e, es = p.gm.get_2_best_out_edges_appearance_motion_mix(v)
+        out_t += time.time() - t
 
         if e[1] is not None:
             # e_, es_ = p.gm.get_2_best_in_edges_appearance_motion_mix(e[0].source())
@@ -556,6 +564,7 @@ if __name__ == '__main__':
 
             A = es[0]
             B = es[1]
+            t = time.time()
             if gt.test_edge(p.gm.get_chunk(e[0].source()), p.gm.get_chunk(e[0].target()), p):
                 eps = (A / theta) - (A + B)
                 variant.append(0)
@@ -563,12 +572,16 @@ if __name__ == '__main__':
                 eps = (A + B) / ((1/theta) - 1)
                 variant.append(1)
 
+            test_t += time.time() - t
+
             AA.append(A)
             BB.append(B)
             epsilons.append(eps)
             edges.append((int(e[0].source()), int(e[0].target())))
 
     print min(epsilons), max(epsilons)
+
+    print "T: ", out_t, test_t
 
     with open(p.working_directory+'/temp/epsilons.pkl', 'wb') as f:
         pickle.dump((epsilons, edges, variant, AA, BB), f)
