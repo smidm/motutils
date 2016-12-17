@@ -486,12 +486,27 @@ class GT:
 
     def project_stats(self, p):
         num_max_len = 0
+        num_max_len_singles = 0
+        num_singles = 0
         not_consistent = 0
 
         not_consistent_list = []
+        singles_splits = set()
+
+        matches = self.match_on_data(p, frames=range(0, p.gm.end_t + 1))
 
         for t in p.chm.chunk_gen():
-            match = [x for x in self.match_on_data(p, frames=range(t.start_frame(p.gm), t.end_frame(p.gm) + 1)).itervalues()]
+            single = False
+
+            match = [matches[frame] for frame in range(t.start_frame(p.gm), t.end_frame(p.gm) + 1)]
+            # match = [x for x in self.match_on_data(p, frames=range(t.start_frame(p.gm), t.end_frame(p.gm) + 1)).itervalues()]
+            if match[0].count(t.id()) == 1:
+                single = True
+                num_singles += 1
+
+                singles_splits.add(t.start_frame(p.gm))
+                singles_splits.add(t.end_frame(p.gm))
+
             if not self.test_tracklet_consistency(t, match):
                 not_consistent += 1
                 not_consistent_list.append(t)
@@ -499,111 +514,84 @@ class GT:
             if self.test_tracklet_max_len(t, p):
                 num_max_len += 1
 
+                if single:
+                    num_max_len_singles += 1
+                    singles_splits.discard(t.start_frame(p.gm))
+                    singles_splits.discard(t.end_frame(p.gm))
+
         num_t = len(p.chm)
-        print "#max_len: {}, ({:.2%}, #not consitent: {})".format(num_max_len, num_max_len/float(num_t), not_consistent)
+        print "#max_len singles: {}({:.2%}) all: {}({:.2%}), #not consitent: {}".format(num_max_len_singles,
+                                                                                         num_max_len_singles/float(num_singles),
+                                                                                         num_max_len,
+                                                                                         num_max_len/float(num_t),
+                                                                                         not_consistent)
+
+
+        print "single nonmax splits: "
+        print sorted(list(singles_splits))
 
 if __name__ == '__main__':
     from core.project.project import Project
     p = Project()
-    # p.load('/Users/flipajs/Documents/wd/FERDA/Cam1_playground')
-    # p.load('/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground')
-    # p.load('/Users/flipajs/Documents/wd/FERDA/Camera3')
-    p.load('/Users/flipajs/Documents/wd/FERDA/Sowbug3')
+    wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
+    wd = '/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground'
+    wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
+    # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
 
-    with open(p.working_directory+'/temp/isolation_score.pkl', 'rb') as f:
-    # with open(wd+'/temp/isolation_score.pkl', 'rb') as f:
-    # with open('/Users/flipajs/Documents/wd/FERDA/Cam1_playground/temp/isolation_score.pkl', 'rb') as f:
-        up = pickle.Unpickler(f)
-        p.gm.g = up.load()
-        up.load()
-        chm = up.load()
-        p.chm = chm
+    p.load_hybrid(wd, 'eps_edge_filter')
 
-    from core.region.region_manager import RegionManager
-    p.rm = RegionManager(p.working_directory+'/temp', db_name='part0_rm.sqlite3')
-    p.gm.rm = p.rm
-
-    # p.chm.add_single_vertices_chunks(p, frames=range(4500))
-    p.chm.add_single_vertices_chunks(p, frames=range(5000))
+    p.chm.add_single_vertices_chunks(p)
     p.gm.update_nodes_in_t_refs()
 
-
-    # p.load('/Users/flipajs/Documents/wd/zebrafish')
     # p.GT_file = '/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl'
     # p.save()
 
     gt = GT()
     gt.load(p.GT_file)
 
-    epsilons = []
-    edges = []
-    variant = []
-    symmetric = []
-    AA = []
-    BB = []
+    gt.project_stats(p)
 
-    theta = 0.5
+    if False:
+        epsilons = []
+        edges = []
+        variant = []
+        AA = []
+        BB = []
 
-    out_t = 0
-    test_t = 0
+        theta = 0.5
+
+        out_t = 0
+        test_t = 0
 
 
-    import time
+        import time
 
-    for v in p.gm.active_v_gen():
-        t = time.time()
-        e, es = p.gm.get_2_best_out_edges_appearance_motion_mix(v)
-        out_t += time.time() - t
-
-        if e[1] is not None:
-            # e_, es_ = p.gm.get_2_best_in_edges_appearance_motion_mix(e[0].source())
-            # if e_[0].target() == e[0].target() or (e_[1] is not None and e_[1].target() == e[0].target()):
-            #     symmetric.append(1)
-            # else:
-            #     symmetric.append(0)
-
-            A = es[0]
-            B = es[1]
+        for v in p.gm.active_v_gen():
             t = time.time()
-            if gt.test_edge(p.gm.get_chunk(e[0].source()), p.gm.get_chunk(e[0].target()), p):
-                eps = (A / theta) - (A + B)
-                variant.append(0)
-            else:
-                eps = (A + B) / ((1/theta) - 1)
-                variant.append(1)
+            e, es = p.gm.get_2_best_out_edges_appearance_motion_mix(v)
+            out_t += time.time() - t
 
-            test_t += time.time() - t
+            if e[1] is not None:
+                A = es[0]
+                B = es[1]
+                t = time.time()
+                if gt.test_edge(p.gm.get_chunk(e[0].source()), p.gm.get_chunk(e[0].target()), p):
+                    eps = (A / theta) - (A + B)
+                    variant.append(0)
+                else:
+                    eps = (A + B) / ((1/theta) - 1)
+                    variant.append(1)
 
-            AA.append(A)
-            BB.append(B)
-            epsilons.append(eps)
-            edges.append((int(e[0].source()), int(e[0].target())))
+                test_t += time.time() - t
 
-    print min(epsilons), max(epsilons)
+                AA.append(A)
+                BB.append(B)
+                epsilons.append(eps)
+                edges.append((int(e[0].source()), int(e[0].target())))
 
-    print "T: ", out_t, test_t
+        print min(epsilons), max(epsilons)
 
-    with open(p.working_directory+'/temp/epsilons.pkl', 'wb') as f:
-        pickle.dump((epsilons, edges, variant, AA, BB), f)
+        print "T: ", out_t, test_t
 
-    # gt.project_stats(p)
-
-    # t1 = p.gm.get_chunk(762)
-    # print gt.tracklet_id_set(t1, p)
-    #
-    # t2 = p.gm.get_chunk(784)
-    # print gt.tracklet_id_set(t2, p)
-    #
-    # print gt.tracklet_id_set(p.gm.get_chunk(891), p)
-
-    # gt.build_from_PN(p)
-    # gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
-
-    # gt = GT()
-    # gt.build_from_PN(p)
-    #
-    # # gt.load('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
-    # gt.save('/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
-    #
-    # print gt.get_clear_positions(100)
-    # print gt.get_clear_rois(100)
+        with open(p.working_directory+'/temp/epsilons.pkl', 'wb') as f:
+            pickle.dump((epsilons, edges, variant, AA, BB), f)
