@@ -373,8 +373,7 @@ class GT:
                     if match_on == 'tracklets':
                         for r, t_id in izip(regions, ch_ids):
                             if r.is_inside(pos[a_id], tolerance=max_d):
-                                if match_on == 'tracklets':
-                                    match[frame][a_id] = t_id
+                                match[frame][a_id] = t_id
                                 break
                     else:
                         for r in regions:
