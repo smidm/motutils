@@ -29,14 +29,24 @@ class GT:
         self.__max_frame = sys.maxint
 
         self.__permutation = {}
+        self.__gt_id_to_real_permutation = {}
 
         self.__init_permutations()
 
     def __init_permutations(self):
         self.__permutation = {}
+        self.__gt_id_to_real_permutation = {}
         for id_ in range(self.__num_ids):
+            self.__gt_id_to_real_permutation[id_] = id_
             self.__permutation[id_] = id_
 
+
+    def set_permutation_reversed(self, data):
+        self.__permutation = self.get_permutation(data)
+        temp = dict(self.__permutation)
+        for key, val in temp.iteritems():
+            self.__permutation[val] = key
+            self.__gt_id_to_real_permutation[key] = val
 
     def set_permutation(self, data):
         """
@@ -51,6 +61,9 @@ class GT:
         """
 
         self.__permutation = self.get_permutation(data)
+        for key, val in self.__permutation.iteritems():
+            self.__gt_id_to_real_permutation[val] = key
+
 
     def get_permutation(self, data):
         perm = {}
@@ -325,7 +338,7 @@ class GT:
 
         print "DONE"
 
-    def match_on_data(self, project, frames=None, max_d=5, match_on='tracklets'):
+    def match_on_data(self, project, frames=None, max_d=5, data_centroids=None, match_on='tracklets', permute=False):
         from scipy.spatial.distance import cdist
         from utils.misc import print_progress
         from itertools import izip
@@ -345,20 +358,30 @@ class GT:
             # add chunk ids
             if match_on=='tracklets':
                 r_t = project.gm.regions_and_t_ids_in_t(frame)
-                regions = [x[0] for x in r_t]
+                regions = [project.rm[x[0]] for x in r_t]
                 ch_ids = [x[1] for x in r_t]
+            elif match_on=='centroids':
+                pass
             else:
                 regions = project.gm.regions_in_t(frame)
 
-            if len(regions) == 0:
+            # if len(regions) == 0:
+            #     continue
+
+            if data_centroids is None:
+                centroids = np.array([r.centroid() for r in regions])
+            else:
+                centroids = data_centroids[frame]
+
+            if len(centroids) == 0:
                 continue
 
-            centroids = np.array([r.centroid() for r in regions])
             pos = self.__positions[frame]
             if None in pos:
                 continue
             pos = np.array([(x[0], x[1]) for x in pos])
 
+            centroids[np.isnan(centroids)] = np.inf
             try:
                 dists = cdist(pos, centroids)
             except:
@@ -368,6 +391,9 @@ class GT:
             m1 = dists[range(pos.shape[0]), m1_i]
 
             for a_id, id_ in enumerate(m1_i):
+                if permute:
+                    a_id = self.__permutation[a_id]
+
                 if m1[a_id] > max_d:
                     # try if inside region...
                     if match_on == 'tracklets':
@@ -375,6 +401,8 @@ class GT:
                             if r.is_inside(pos[a_id], tolerance=max_d):
                                 match[frame][a_id] = t_id
                                 break
+                    elif match_on == 'centroids':
+                        pass
                     else:
                         for r in regions:
                             if r.is_inside(pos[a_id], tolerance=max_d):
@@ -386,6 +414,8 @@ class GT:
                 else:
                     if match_on == 'tracklets':
                         match[frame][a_id] = ch_ids[id_]
+                    elif match_on == 'centroids':
+                        match[frame][a_id] = id_
                     else:
                         match[frame][a_id] = regions[id_].id()
 
@@ -421,7 +451,7 @@ class GT:
 
         ids = self.__get_ids_from_match(match[0], tracklet.id())
         if self.test_tracklet_consistency(tracklet, match, ids):
-            return [self.__permutation[id_] for id_ in ids]
+            return [self.__gt_id_to_real_permutation[id_] for id_ in ids]
         else:
             warnings.warn('Tracklet id: {} is inconsistent'.format(tracklet.id()))
             print match, ids
@@ -529,15 +559,62 @@ class GT:
         print "single nonmax splits: "
         print sorted(list(singles_splits))
 
+    def get_single_region_ids(self, project):
+        single_region_ids = []
+        animal_ids = []
+        match = self.match_on_data(project, match_on='regions')
+
+        for frame in match.iterkeys():
+            for a_id, r_id in enumerate(match[frame]):
+                if r_id is None:
+                    continue
+
+                if match[frame].count(r_id) == 1:
+                    single_region_ids.append(r_id)
+                    animal_ids.append(a_id)
+
+        return single_region_ids, animal_ids
+
+    def segmentation_class_from_idset(self, idset):
+        if len(idset) > 1:
+            return 1
+
+        if len(idset) == 1 and idset[0] is None:
+            return 2
+
+        if len(idset) == 0:
+            return 3
+
+        return 0
+
+    def get_class_and_id(self, tracklet, project):
+        print "ASKING ABOUT ID ", tracklet.id()
+
+        id_set = self.tracklet_id_set(tracklet, project)
+        t_class = self.segmentation_class_from_idset(id_set)
+
+        return t_class, id_set
+
+
 if __name__ == '__main__':
     from core.project.project import Project
     p = Project()
-    wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
-    wd = '/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground'
-    wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
+
+    name = 'Camera3'
+    name = 'Sowbug3'
+    name = 'Cam1'
+    # name = 'zebrafish'
+    nogaps = ''
+    # nogaps = '_nogaps'
+    playground = ''
+    playground = '_playground'
+
+    # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
+    # wd = '/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground'
+    wd = '/Users/flipajs/Documents/wd/FERDA/'+name+playground
     # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
 
-    p.load_hybrid(wd, 'eps_edge_filter')
+    p.load_semistate(wd, 'id_classified_no_HIL')
 
     p.chm.add_single_vertices_chunks(p)
     p.gm.update_nodes_in_t_refs()
@@ -548,7 +625,12 @@ if __name__ == '__main__':
     gt = GT()
     gt.load(p.GT_file)
 
-    gt.project_stats(p)
+    path = '/Users/flipajs/Documents/wd/idTracker/'+name+'/trajectories'+nogaps+'.mat'
+    from evaluator import compare_trackers
+
+    results = compare_trackers(p, path, impath='/Users/flipajs/Documents/dev/ferda/thesis/results/overall_'+name+nogaps+'.png')
+
+    # gt.project_stats(p)
 
     if False:
         epsilons = []
