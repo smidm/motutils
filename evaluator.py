@@ -242,7 +242,7 @@ class Evaluator:
                     m_i += 1
                     print "MISMATCH: #{:}, frame: {:}, id: {:}, gt_id: {:}".format(m_i, frame, id_, match_id_)
 
-def draw_id_t_img(p, matches, perms, col_w=1, gt_h=5, gt_border=1, row_border=2, row_h=30, bg=[0, 0, 0], impath=None):
+def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, row_border=2, row_h=30, bg=[0, 0, 0], impath=None):
     from core.animal import colors_
     import cv2
 
@@ -290,6 +290,9 @@ def draw_id_t_img(p, matches, perms, col_w=1, gt_h=5, gt_border=1, row_border=2,
         y = id_ * row_h * num_trackers
         im[y-row_border:y + row_border, :, :] = [0, 0, 0]
 
+    # cv2.putText(im, 'idTracker', (7, 42), cv2.FONT_HERSHEY_PLAIN, 2.0, (0, 0, 0), 2)
+    # cv2.putText(im, 'FERDA', (7, 95), cv2.FONT_HERSHEY_PLAIN, 2.0, (0, 0, 0), 2)
+    # cv2.putText(im, 'idTracker', cv2.FONT, 0.2, (255, 255, 255), )
     # import cv2
     # cv2.imwrite(p.working_directory+'/temp/im.png', im)
 
@@ -303,13 +306,17 @@ def draw_id_t_img(p, matches, perms, col_w=1, gt_h=5, gt_border=1, row_border=2,
     h_ = num_trackers*row_h
     fsize = 6
     ax.set_yticks((np.arange(num_objects)*h_) + h_/2 - 2)
-    ax.set_yticklabels(range(num_objects), fontsize=fsize)
+    # starting from 1
+    ax.set_yticklabels(range(1, num_objects+1), fontsize=fsize)
 
     xt = np.array(range(0, num_frames, 1000))
     ax.set_xticks(xt)
     ax.set_xticklabels(xt, fontsize=fsize)
-    plt.xlabel('frame', fontsize=fsize)
-    plt.ylabel('id', fontsize=fsize)
+    # plt.xlabel('frame', fontsize=fsize)
+    # plt.ylabel('id', fontsize=fsize)
+
+    if name is not None:
+        plt.title(name, fontsize=fsize+2)
 
     if impath is None:
         impath = p.working_directory+'/temp/overall_comparison.png'
@@ -317,7 +324,7 @@ def draw_id_t_img(p, matches, perms, col_w=1, gt_h=5, gt_border=1, row_border=2,
     # plt.show()
 
 
-def compare_trackers(p, idtracker_path, impath=None):
+def compare_trackers(p, idtracker_path, impath=None, name=None):
     from utils.idtracker import load_idtracker_data
 
     gt = GT()
@@ -367,7 +374,7 @@ def compare_trackers(p, idtracker_path, impath=None):
     for i in range(len(p.animals)):
         perm2[i] = m_[i]
 
-    draw_id_t_img(p, [match, match2], [perm, perm2], row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200], impath=impath)
+    draw_id_t_img(p, [match, match2], [perm, perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200], impath=impath)
     print "EVAL IdTracker"
 
     ev = Evaluator(None, gt)

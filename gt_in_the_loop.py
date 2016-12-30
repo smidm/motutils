@@ -40,6 +40,7 @@ if __name__ == '__main__':
     from core.graph.region_chunk import RegionChunk
     p = Project()
     wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
+    # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
     # wd = '/Users/flipajs/Documents/wd/FERDA/zebrafish_playground'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
@@ -51,9 +52,10 @@ if __name__ == '__main__':
 
     lp = LearningProcess(p, verbose=1)
     # lp.load_features('fm_basic.sqlite3')
-    lp.load_features('fm_idtracker_i.sqlite3')
+    lp.load_features(['fm_idtracker_i.sqlite3', 'fm_basic.sqlite3'])
+    # lp.load_features('fm_colornames.sqlite3')
 
-    best_frame = lp.auto_init()
+    best_frame = lp.auto_init(method='best_min')
     permutation_data = []
     for d in lp.user_decisions:
         t = p.chm[d['tracklet_id_set']]
@@ -71,6 +73,11 @@ if __name__ == '__main__':
     # in fact it is 1-0.8 ...
     lp.set_eps_certainty(1.0)
 
+    # lp.ignore_inconsistency = False
+    # lp.set_eps_certainty(.5)
+
+    increase_init_set = 0
+
     finished = True
     for run in range(100):
         print "---------_ RUN #{} _---------".format(run)
@@ -78,11 +85,15 @@ if __name__ == '__main__':
         while True:
             lp.next_step()
 
-            if lp.consistency_violated:
-                t_id = lp.last_id
-                user_d_ids = [it['tracklet_id_set'] for it in lp.user_decisions]
-                if t_id in user_d_ids or t_id < 1:
-                    t_id = lp.get_best_question().id()
+            if lp.consistency_violated or run < increase_init_set:
+                if run < increase_init_set:
+                    t_id = lp.question_to_increase_smallest(gt).id()
+                    # t_id = lp.get_best_question().id()
+                else:
+                    t_id = lp.last_id
+                    user_d_ids = [it['tracklet_id_set'] for it in lp.user_decisions]
+                    if t_id in user_d_ids or t_id < 1:
+                        t_id = lp.get_best_question().id()
 
                 t = p.chm[t_id]
                 t_class, animal_id = gt.get_class_and_id(t, p)
@@ -101,7 +112,7 @@ if __name__ == '__main__':
                 print "User input. T id: {}, aid: {} class: {}".format(t_id, animal_id, t_class)
                 print "BREAKING... {} tracklets left undecided (sum len: {}). User decisions: {}. Coverage: {:.2%}".format(len(lp.undecided_tracklets), get_len_undecided(p, lp), len(lp.user_decisions), get_coverage(p))
                 break
-            elif len(lp.undecided_tracklets) == 0:
+            elif len(lp.undecided_tracklets) == 0 and run >= increase_init_set:
                 finished = True
 
                 print "FINISHED"

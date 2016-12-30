@@ -33,6 +33,8 @@ class GT:
 
         self.__init_permutations()
 
+        self.break_on_inconsistency = False
+
     def __init_permutations(self):
         self.__permutation = {}
         self.__gt_id_to_real_permutation = {}
@@ -468,7 +470,9 @@ class GT:
         for i in range(1, len(match)):
             if ids != self.__get_ids_from_match(match[i], tracklet.id()):
                 print "CONSISTENCY I, ", i
-                return False
+
+                if self.break_on_inconsistency:
+                    return False
 
         return True
 
@@ -587,8 +591,9 @@ class GT:
 
         return 0
 
-    def get_class_and_id(self, tracklet, project):
-        print "ASKING ABOUT ID ", tracklet.id()
+    def  get_class_and_id(self, tracklet, project, verbose=0):
+        if verbose:
+            print "ASKING ABOUT ID ", tracklet.id()
 
         id_set = self.tracklet_id_set(tracklet, project)
         t_class = self.segmentation_class_from_idset(id_set)
@@ -601,20 +606,21 @@ if __name__ == '__main__':
     p = Project()
 
     name = 'Camera3'
-    name = 'Sowbug3'
-    name = 'Cam1'
+    # name = 'Sowbug3'
+    # name = 'Cam1'
     # name = 'zebrafish'
     nogaps = ''
     # nogaps = '_nogaps'
     playground = ''
-    playground = '_playground'
+    # playground = '_playground'
 
     # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground'
     wd = '/Users/flipajs/Documents/wd/FERDA/'+name+playground
+    # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
 
-    p.load_semistate(wd, 'id_classified_no_HIL')
+    p.load_semistate(wd, 'id_classified')
 
     p.chm.add_single_vertices_chunks(p)
     p.gm.update_nodes_in_t_refs()
