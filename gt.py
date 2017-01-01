@@ -607,12 +607,12 @@ if __name__ == '__main__':
 
     name = 'Camera3'
     # name = 'Sowbug3'
-    # name = 'Cam1'
+    name = 'Cam1'
     # name = 'zebrafish'
     nogaps = ''
     # nogaps = '_nogaps'
     playground = ''
-    # playground = '_playground'
+    playground = '_playground'
 
     # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground'
@@ -634,7 +634,7 @@ if __name__ == '__main__':
     path = '/Users/flipajs/Documents/wd/idTracker/'+name+'/trajectories'+nogaps+'.mat'
     from evaluator import compare_trackers
 
-    results = compare_trackers(p, path, impath='/Users/flipajs/Documents/dev/ferda/thesis/results/overall_'+name+nogaps+'.png')
+    results = compare_trackers(p, path, impath='/Users/flipajs/Documents/dev/ferda/thesis/results/overall_'+name+nogaps+'_rf.png')
 
     # gt.project_stats(p)
 

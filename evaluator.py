@@ -10,7 +10,7 @@ class Evaluator:
         self.__clearmetrics = None
 
     def eval_ids(self, project, frames=None, max_d=5, match=None):
-        print "evaluation in progress..."
+        # print "evaluation in progress..."
         if match is None:
             match = self._gt.match_on_data(project, frames=frames, max_d=max_d, match_on='tracklets', permute=True)
             print "match done..."
@@ -77,7 +77,7 @@ class Evaluator:
         print "single mistakes coverage: {:.2%}".format(mistakes_len/float(single_gt_len))
 
     def eval_ids_from_match(self, project, match, perm, frames=None, max_d=5, verbose=0):
-        print "evaluation in progress..."
+        # print "evaluation in progress..."
 
         t_id_map = {}
 
@@ -124,11 +124,11 @@ class Evaluator:
 
         c_coverage = single_len/float(len(project.animals)*max_f)
         m_coverage = mistakes_len / float(len(project.animals) * max_f)
-        print "correct pose: {:.2%}".format(c_coverage)
-        # print "single correct coverage: {:.2%} ({})".format(single_len/float(single_gt_len), single_len)
-        print "wrong pose: {:.2%}".format(m_coverage)
-        print "unknown pose: {:.2%}".format(1-(m_coverage+c_coverage))
-        # print "single mistakes coverage: {:.2%}".format(mistakes_len/float(single_gt_len))
+        # print "correct pose: {:.2%}".format(c_coverage)
+        # # print "single correct coverage: {:.2%} ({})".format(single_len/float(single_gt_len), single_len)
+        # print "wrong pose: {:.2%}".format(m_coverage)
+        # print "unknown pose: {:.2%}".format(1-(m_coverage+c_coverage))
+        # # print "single mistakes coverage: {:.2%}".format(mistakes_len/float(single_gt_len))
 
         return c_coverage, m_coverage
 
@@ -323,30 +323,7 @@ def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, ro
     plt.savefig(impath, bbox_inches='tight', pad_inches=0, dpi=512)
     # plt.show()
 
-
-def compare_trackers(p, idtracker_path, impath=None, name=None):
-    from utils.idtracker import load_idtracker_data
-
-    gt = GT()
-    gt.load(p.GT_file)
-
-    data, _ = load_idtracker_data(idtracker_path, p, gt)
-    data[:, :, 0], data[:, :, 1] = data[:, :, 1].copy(), data[:, :, 0].copy()
-
-    # idTracker
-    match = gt.match_on_data(p, data_centroids=data, match_on='centroids', max_d=25, frames=range(len(data)))
-    freq = np.zeros((len(p.animals), len(p.animals)), dtype=np.int)
-    for it in match.itervalues():
-        for i, val in enumerate(it):
-            freq[i][val] += 1
-
-    m_ = np.argmax(freq, axis=0)
-    perm = {}
-
-    for i in range(len(p.animals)):
-        perm[i] = m_[i]
-
-    #####
+def eval_centroids(p, gt, match=None):
     data = []
     for frame in range(p.gm.end_t):
         data.append(np.array([[np.nan, np.nan] for _ in range(len(p.animals))]))
@@ -361,28 +338,66 @@ def compare_trackers(p, idtracker_path, impath=None, name=None):
 
     data = np.array(data)
 
-    # FERDA
-    match2 = gt.match_on_data(p, data_centroids=data, match_on='centroids', max_d=25, frames=range(len(data)))
+    if match is None:
+        match = gt.match_on_data(p, data_centroids=data, match_on='centroids', max_d=25, frames=range(len(data)))
+
     freq = np.zeros((len(p.animals), len(p.animals)), dtype=np.int)
-    for it in match2.itervalues():
+    for it in match.itervalues():
         for i, val in enumerate(it):
             freq[i][val] += 1
 
     m_ = np.argmax(freq, axis=0)
-    perm2 = {}
+    perm = {}
 
     for i in range(len(p.animals)):
-        perm2[i] = m_[i]
+        perm[i] = m_[i]
+
+    ev = Evaluator(None, gt)
+    f_c_coverage, f_m_coverage = ev.eval_ids_from_match(p, match, perm)
+
+    return match, perm, f_c_coverage, f_m_coverage
+
+def print_coverage(c_coverage, m_coverage):
+    print "correct pose: {:.2%}".format(c_coverage)
+    print "wrong pose: {:.2%}".format(m_coverage)
+    print "unknown pose: {:.2%}".format(1 - (c_coverage + m_coverage))
+
+
+def compare_trackers(p, idtracker_path, impath=None, name=None, skip_idtracker=False):
+    from utils.idtracker import load_idtracker_data
+
+    gt = GT()
+    gt.load(p.GT_file)
+
+    if not skip_idtracker:
+        data, _ = load_idtracker_data(idtracker_path, p, gt)
+        data[:, :, 0], data[:, :, 1] = data[:, :, 1].copy(), data[:, :, 0].copy()
+
+        # idTracker
+        match = gt.match_on_data(p, data_centroids=data, match_on='centroids', max_d=25, frames=range(len(data)))
+        freq = np.zeros((len(p.animals), len(p.animals)), dtype=np.int)
+        for it in match.itervalues():
+            for i, val in enumerate(it):
+                freq[i][val] += 1
+
+        m_ = np.argmax(freq, axis=0)
+        perm = {}
+
+        for i in range(len(p.animals)):
+            perm[i] = m_[i]
+
+    if not skip_idtracker:
+        print "IdTracker:"
+        ev = Evaluator(None, gt)
+        idtracker_c_coverage, idtracker_m_coverage = ev.eval_ids_from_match(p, match, perm)
+
+        print_coverage(idtracker_c_coverage, idtracker_m_coverage)
+
+    print "FERDA:"
+    match2, perm2, f_c_coverage, f_m_coverage = eval_centroids(p, gt)
+    print_coverage(f_c_coverage, f_m_coverage)
 
     draw_id_t_img(p, [match, match2], [perm, perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200], impath=impath)
-    print "EVAL IdTracker"
-
-    ev = Evaluator(None, gt)
-    idtracker_c_coverage, idtracker_m_coverage = ev.eval_ids_from_match(p, match, perm)
-
-    print "EVAL FERDA"
-    ev = Evaluator(None, gt)
-    f_c_coverage, f_m_coverage = ev.eval_ids_from_match(p, match2, perm2)
 
     return (idtracker_c_coverage, idtracker_m_coverage, f_c_coverage, f_m_coverage)
 
