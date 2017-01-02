@@ -41,7 +41,7 @@ def assign_ids(p, semistate='tracklets_s_classified',
                gt_in_the_loop=False, out_state_name='id_classified',
                HIL=False, rf_max_features='auto',
                rf_min_new_samples_to_retrain=10000,
-               rf_retrain_up_to_min=np.inf):
+               rf_retrain_up_to_min=np.inf, auto_init_method='max_sum'):
 
     p.load_semistate(wd, state='tracklets_s_classified', one_vertex_chunk=True, update_t_nodes=True)
 
@@ -55,7 +55,8 @@ def assign_ids(p, semistate='tracklets_s_classified',
     # lp.load_features('fm_basic.sqlite3')
     lp.load_features(features)
 
-    best_frame = lp.auto_init()
+    # best_frame = lp.auto_init()
+    best_frame = lp.auto_init(method=auto_init_method)
     permutation_data = []
     for d in lp.user_decisions:
         t = p.chm[d['tracklet_id_set']]
@@ -77,7 +78,7 @@ def assign_ids(p, semistate='tracklets_s_classified',
         # in fact it is 1-0.8 ...
         lp.set_eps_certainty(1.0)
 
-    for i in range(1):
+    for i in range(5):
         increase_init_set = 0
         finished = True
         for run in range(100):
@@ -114,11 +115,10 @@ def assign_ids(p, semistate='tracklets_s_classified',
                     print "BREAKING... {} tracklets left undecided (sum len: {}). User decisions: {}. Coverage: {:.2%}".format(
                         len(lp.undecided_tracklets), get_len_undecided(p, lp), len(lp.user_decisions), get_coverage(p))
                     break
-                elif len(lp.undecided_tracklets) == 0 and run >= increase_init_set:
+                elif len(lp.tracklet_certainty) == 0 and run >= increase_init_set:
                     finished = True
 
                     print "FINISHED"
-
                     break
 
             if finished:
@@ -142,28 +142,30 @@ def assign_ids(p, semistate='tracklets_s_classified',
 if __name__ == '__main__':
     from core.graph.region_chunk import RegionChunk
     p = Project()
-    wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
-    # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
-    # wd = '/Users/flipajs/Documents/wd/FERDA/zebrafish_playground'
+    # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
+    wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
+    # wd = '/Users/flipajs/Documents/wd/FERDA/zebrafish_playgrou  nd'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
-    # p.load_semistate('/Users/flipajs/Documents/wd/FERDA/Sowbug3', state='eps_edge_filter')
+    # p.load_semistate('/Users/flipajs/Documen ts/wd/FERDA/Sowbug3', state='eps_edge_filter')
 
     config = {'rf_max_features': '0.5', 'HIL': False,
               'features': ['fm_idtracker_i.sqlite3',
                            # 'fm_idtracker_c.sqlite3',
                            'fm_basic.sqlite3',
-                           # 'fm_colornames.sqlite3'
+                           'fm_colornames.sqlite3'
                            ],
-              'rf_min_new_samples_to_retrain': 500,
-              'rf_retrain_up_to_min': 500}
+              'rf_min_new_samples_to_retrain': 10,
+              'rf_retrain_up_to_min': 200,
+              'auto_init_method': 'max_sum'}
 
     assign_ids(p,
                rf_max_features=config['rf_max_features'],
                HIL=config['HIL'],
                features=config['features'],
                rf_min_new_samples_to_retrain=config['rf_min_new_samples_to_retrain'],
-               rf_retrain_up_to_min=config['rf_retrain_up_to_min'])
+               rf_retrain_up_to_min=config['rf_retrain_up_to_min'],
+               auto_init_method=config['auto_init_method'])
 
     print
     print config

@@ -617,7 +617,7 @@ if __name__ == '__main__':
     # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground'
     wd = '/Users/flipajs/Documents/wd/FERDA/'+name+playground
-    # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
+    wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
 
     p.load_semistate(wd, 'id_classified')
