@@ -36,12 +36,37 @@ def get_coverage(project, undecided=False, lp=None):
 
     return coverage / float(max_ * len(project.animals))
 
+def check_gt(p, tracklet_gt_map, step, already_reported):
+    for t in p.chm.chunk_gen():
+        if t.id() in already_reported:
+            continue
+
+        if t.id() in tracklet_gt_map:
+            gt = tracklet_gt_map[t.id()]
+        else:
+            gt = set()
+
+        t_n_fail = False
+        for id_ in gt:
+            if id_ in t.N:
+                t_n_fail = True
+
+        if (len(t.P) == 1 and t.P != gt) or t_n_fail:
+            already_reported.add(t.id())
+
+            print "STEP: {}, t_id: {}, t_len: {}, t.P: {}, t.N: {}, gt: {}".format(step, t.id(), t.length(), t.P, t.N, gt)
+            try:
+                print "\t decision cert: {}, tracklet measurements: {}".format(t.decision_cert, t.measurements)
+            except:
+                pass
+
 def assign_ids(p, semistate='tracklets_s_classified',
                features=['fm_idtracker_i.sqlite3', 'fm_basic.sqlite3'],
                gt_in_the_loop=False, out_state_name='id_classified',
                HIL=False, rf_max_features='auto',
                rf_min_new_samples_to_retrain=10000,
-               rf_retrain_up_to_min=np.inf, auto_init_method='max_sum'):
+               rf_retrain_up_to_min=np.inf, auto_init_method='max_sum', num_runs='1',
+               check_lp_steps=False):
 
     p.load_semistate(wd, state='tracklets_s_classified', one_vertex_chunk=True, update_t_nodes=True)
 
@@ -51,6 +76,7 @@ def assign_ids(p, semistate='tracklets_s_classified',
     lp = LearningProcess(p, verbose=1)
     lp.min_new_samples_to_retrain = rf_min_new_samples_to_retrain
     lp.rf_retrain_up_to_min = rf_retrain_up_to_min
+    lp.map_decisions = check_lp_steps
 
     # lp.load_features('fm_basic.sqlite3')
     lp.load_features(features)
@@ -66,6 +92,17 @@ def assign_ids(p, semistate='tracklets_s_classified',
 
     gt.set_permutation(permutation_data)
 
+    match = gt.match_on_data(p)
+    tracklet_gt_map = {}
+
+    perm = gt.get_permutation_reversed()
+    for frame, vals in match.iteritems():
+        for a_id, t_id in enumerate(vals):
+            if t_id not in tracklet_gt_map:
+                tracklet_gt_map[t_id] = set()
+            else:
+                tracklet_gt_map[t_id].add(perm[a_id])
+
     print len(lp.user_decisions)
 
     # IMPORTANT!
@@ -78,14 +115,23 @@ def assign_ids(p, semistate='tracklets_s_classified',
         # in fact it is 1-0.8 ...
         lp.set_eps_certainty(1.0)
 
-    for i in range(5):
+    results = []
+    for i in range(num_runs):
         increase_init_set = 0
         finished = True
+
+        already_reported = set()
+
         for run in range(100):
             print "---------_ RUN #{} _---------".format(run)
             lp.reset_learning()
+            step = 0
             while True:
+                step += 1
                 lp.next_step()
+
+                if check_lp_steps:
+                    check_gt(p, tracklet_gt_map, step, already_reported)
 
                 if lp.consistency_violated or run < increase_init_set:
                     if run < increase_init_set:
@@ -132,40 +178,58 @@ def assign_ids(p, semistate='tracklets_s_classified',
         _, _, cc, mc = eval_centroids(p, gt)
         print_coverage(cc, mc)
 
+        results.append((cc, mc))
+
 
     if lp.ignore_inconsistency:
-        p.save_semistate(state=out_state_name+'_no_HIL')
+        p.save_semistate(state=out_state_name+'_no_HIL'+'_'+str(num_runs))
     else:
-        p.save_semistate(state=out_state_name)
+        p.save_semistate(state=out_state_name+'_'+str(num_runs))
 
+    return results
 
 if __name__ == '__main__':
     from core.graph.region_chunk import RegionChunk
+    from thesis.config import *
+    import cPickle as pickle
+    import datetime
     p = Project()
-    # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
-    wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
-    # wd = '/Users/flipajs/Documents/wd/FERDA/zebrafish_playgrou  nd'
+    wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
+    # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
+    # wd = '/Users/flipajs/Documents/wd/FERDA/zebrafish_playground'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
     # p.load_semistate('/Users/flipajs/Documen ts/wd/FERDA/Sowbug3', state='eps_edge_filter')
 
     config = {'rf_max_features': '0.5', 'HIL': False,
-              'features': ['fm_idtracker_i.sqlite3',
+              'features': [
+                           # 'fm_idtracker_i.sqlite3',
                            # 'fm_idtracker_c.sqlite3',
                            'fm_basic.sqlite3',
-                           'fm_colornames.sqlite3'
+                           # 'fm_colornames.sqlite3',
+                           # 'fm_colornames_lvl1.sqlite3',
+                           # 'fm_hog.sqlite3',
+                           # 'fm_lbp.sqlite3'
                            ],
               'rf_min_new_samples_to_retrain': 10,
               'rf_retrain_up_to_min': 200,
-              'auto_init_method': 'max_sum'}
+              'auto_init_method': 'max_min',
+              'num_runs': 5,
+              'wd': wd,
+              'check_lp_steps': True}
 
-    assign_ids(p,
+    result = assign_ids(p,
                rf_max_features=config['rf_max_features'],
                HIL=config['HIL'],
                features=config['features'],
                rf_min_new_samples_to_retrain=config['rf_min_new_samples_to_retrain'],
                rf_retrain_up_to_min=config['rf_retrain_up_to_min'],
-               auto_init_method=config['auto_init_method'])
+               auto_init_method=config['auto_init_method'], num_runs=config['num_runs'],
+               check_lp_steps=config['check_lp_steps'])
+
+    dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    with open(RESULT_WD+'/id_assignment/'+wd.split('/')[-1]+dt, 'wb') as f:
+        pickle.dump((config, result), f)
 
     print
     print config

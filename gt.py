@@ -66,6 +66,8 @@ class GT:
         for key, val in self.__permutation.iteritems():
             self.__gt_id_to_real_permutation[val] = key
 
+    def get_permutation_reversed(self):
+        return self.__gt_id_to_real_permutation
 
     def get_permutation(self, data):
         perm = {}
