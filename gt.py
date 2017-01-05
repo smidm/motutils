@@ -565,12 +565,15 @@ class GT:
         print "single nonmax splits: "
         print sorted(list(singles_splits))
 
-    def get_single_region_ids(self, project):
+    def get_single_region_ids(self, project, max_frame=np.inf):
         single_region_ids = []
         animal_ids = []
         match = self.match_on_data(project, match_on='regions')
 
         for frame in match.iterkeys():
+            if frame > max_frame:
+                continue
+
             for a_id, r_id in enumerate(match[frame]):
                 if r_id is None:
                     continue

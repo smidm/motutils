@@ -60,7 +60,8 @@ def check_gt(p, tracklet_gt_map, step, already_reported):
             except:
                 pass
 
-def assign_ids(p, semistate='tracklets_s_classified',
+def \
+        assign_ids(p, semistate='tracklets_s_classified',
                features=['fm_idtracker_i.sqlite3', 'fm_basic.sqlite3'],
                gt_in_the_loop=False, out_state_name='id_classified',
                HIL=False, rf_max_features='auto',
@@ -122,9 +123,13 @@ def assign_ids(p, semistate='tracklets_s_classified',
 
         already_reported = set()
 
+        init_training_set = None
         for run in range(100):
             print "---------_ RUN #{} _---------".format(run)
-            lp.reset_learning()
+            tset = lp.reset_learning()
+            if not init_training_set:
+                init_training_set = tset
+
             step = 0
             while True:
                 step += 1
@@ -178,13 +183,12 @@ def assign_ids(p, semistate='tracklets_s_classified',
         _, _, cc, mc = eval_centroids(p, gt)
         print_coverage(cc, mc)
 
-        results.append((cc, mc))
+        results.append({'cc': cc, 'mc': mc, 'tset': init_training_set, 'HIL': run})
 
-
-    if lp.ignore_inconsistency:
-        p.save_semistate(state=out_state_name+'_no_HIL'+'_'+str(num_runs))
-    else:
-        p.save_semistate(state=out_state_name+'_'+str(num_runs))
+        if lp.ignore_inconsistency:
+            p.save_semistate(state=out_state_name+'_no_HIL'+'_'+str(i))
+        else:
+            p.save_semistate(state=out_state_name+'_'+str(i))
 
     return results
 
@@ -197,26 +201,27 @@ if __name__ == '__main__':
     wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
     # wd = '/Users/flipajs/Documents/wd/FERDA/zebrafish_playground'
-    # wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
+    wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
     # p.load_semistate('/Users/flipajs/Documen ts/wd/FERDA/Sowbug3', state='eps_edge_filter')
 
     config = {'rf_max_features': '0.5', 'HIL': False,
               'features': [
-                           # 'fm_idtracker_i.sqlite3',
-                           # 'fm_idtracker_c.sqlite3',
+                           'fm_idtracker_i.sqlite3',
+                           'fm_idtracker_c.sqlite3',
                            'fm_basic.sqlite3',
-                           # 'fm_colornames.sqlite3',
+                           'fm_colornames.sqlite3',
                            # 'fm_colornames_lvl1.sqlite3',
-                           # 'fm_hog.sqlite3',
-                           # 'fm_lbp.sqlite3'
+                           'fm_hog.sqlite3',
+                           'fm_lbp.sqlite3',
                            ],
               'rf_min_new_samples_to_retrain': 10,
               'rf_retrain_up_to_min': 200,
               'auto_init_method': 'max_min',
               'num_runs': 5,
               'wd': wd,
-              'check_lp_steps': True}
+              'check_lp_steps': True,
+              'semistate': 'tracklets_s_classified2'}
 
     result = assign_ids(p,
                rf_max_features=config['rf_max_features'],
@@ -225,7 +230,8 @@ if __name__ == '__main__':
                rf_min_new_samples_to_retrain=config['rf_min_new_samples_to_retrain'],
                rf_retrain_up_to_min=config['rf_retrain_up_to_min'],
                auto_init_method=config['auto_init_method'], num_runs=config['num_runs'],
-               check_lp_steps=config['check_lp_steps'])
+               check_lp_steps=config['check_lp_steps'],
+               semistate=config['semistate'])
 
     dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     with open(RESULT_WD+'/id_assignment/'+wd.split('/')[-1]+dt, 'wb') as f:
