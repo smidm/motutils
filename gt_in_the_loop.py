@@ -71,7 +71,7 @@ def assign_ids(p, semistate='tracklets_s_classified',
                rf_retrain_up_to_min=np.inf, auto_init_method='max_sum', num_runs='1',
                check_lp_steps=False, appendix='', id_N_propagate=True):
 
-    p.load_semistate(wd, state='tracklets_s_classified', one_vertex_chunk=True, update_t_nodes=True)
+    p.load_semistate(wd, state=semistate, one_vertex_chunk=True, update_t_nodes=True)
 
     gt = GT()
     gt.load(p.GT_file)
@@ -216,7 +216,7 @@ def assign_ids_HIL_INIT(p,
                         appendix='',
                         id_N_propagate=True):
 
-    p.load_semistate(wd, state='tracklets_s_classified', one_vertex_chunk=True, update_t_nodes=True)
+    p.load_semistate(wd, state=semistate, one_vertex_chunk=True, update_t_nodes=True)
 
     gt = GT()
     gt.load(p.GT_file)
@@ -346,10 +346,10 @@ def assign_ids_HIL_INIT(p,
 
         results.append({'cc': cc, 'mc': mc, 'tset': init_training_set, 'HIL': run})
 
-        if lp.ignore_inconsistency:
-            p.save_semistate(state=out_state_name+'_no_HIL'+'_'+str(i)+appendix)
-        else:
-            p.save_semistate(state=out_state_name+'_'+str(i)+appendix)
+        # if lp.ignore_inconsistency:
+        p.save_semistate(state=out_state_name+'_HIL_init'+'_'+str(i)+appendix)
+        # else:
+        #     p.save_semistate(state=out_state_name+'_'+str(i)+appendix)
 
     return results
 
@@ -362,7 +362,7 @@ if __name__ == '__main__':
     wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
     # wd = '/Users/flipajs/Documents/wd/FERDA/zebrafish_playground'
-    # wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
+    wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
     # p.load_semistate('/Users/flipajs/Documen ts/wd/FERDA/Sowbug3', state='eps_edge_filter')
 
@@ -381,8 +381,9 @@ if __name__ == '__main__':
               'rf_retrain_up_to_min': 200,
               'rf_min_samples_leaf': 3,
               'rf_max_depth': 10,
-               'rf_max_features': 0.5,
-               'rf_n_estimators': 100,
+              'frames_per_class': 1000,
+              'rf_max_features': 0.5,
+              'rf_n_estimators': 30,
               'auto_init_method': 'max_min',
               'num_runs': 5,
               'wd': wd,

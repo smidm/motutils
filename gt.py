@@ -98,6 +98,7 @@ class GT:
             tmp_dict = pickle.load(f)
 
         self.__dict__.update(tmp_dict)
+        self.__init_permutations()
 
         print "GT was sucessfully loaded from ", path
         # except:
