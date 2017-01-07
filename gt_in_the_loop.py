@@ -193,10 +193,11 @@ def assign_ids(p, semistate='tracklets_s_classified',
 
         results.append({'cc': cc, 'mc': mc, 'tset': init_training_set, 'HIL': run})
 
-        if lp.ignore_inconsistency:
-            p.save_semistate(state=out_state_name+'_no_HIL'+'_'+str(i)+appendix)
-        else:
-            p.save_semistate(state=out_state_name+'_'+str(i)+appendix)
+        p.save_semistate(state=out_state_name+'_'+str(i)+appendix)
+        # if lp.ignore_inconsistency:
+        #     p.save_semistate(state=out_state_name+'_no_HIL'+'_'+str(i)+appendix)
+        # else:
+        #     p.save_semistate(state=out_state_name+'_'+str(i)+appendix)
 
     return results
 
@@ -232,6 +233,7 @@ def assign_ids_HIL_INIT(p,
     lp.rf_max_features = rf_max_features
 
     lp.id_N_propagate = id_N_propagate
+    lp.verbose = 3
 
     # lp.load_features('fm_basic.sqlite3')
     lp.load_features(features)
@@ -257,9 +259,9 @@ def assign_ids_HIL_INIT(p,
             if t_id not in tracklet_gt_map:
                 tracklet_gt_map[t_id] = set()
                 tracklet_gt_map_without_perm[t_id] = set()
-            else:
-                tracklet_gt_map[t_id].add(perm_r[a_id])
-                tracklet_gt_map_without_perm[t_id].add(a_id)
+
+            tracklet_gt_map[t_id].add(perm_r[a_id])
+            tracklet_gt_map_without_perm[t_id].add(a_id)
 
     t_id = lp.question_near_assigned(tracklet_gt_map, min_samples=frames_per_class)
     while t_id is not None:
@@ -347,22 +349,79 @@ def assign_ids_HIL_INIT(p,
         results.append({'cc': cc, 'mc': mc, 'tset': init_training_set, 'HIL': run})
 
         # if lp.ignore_inconsistency:
+
         p.save_semistate(state=out_state_name+'_HIL_init'+'_'+str(i)+appendix)
         # else:
         #     p.save_semistate(state=out_state_name+'_'+str(i)+appendix)
 
     return results
 
+def run_assign_id(ps, c):
+    for pname, p in ps.iteritems():
+        print
+        print
+        print "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+        print pname
+        print
+
+        dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        result = assign_ids(p,
+                            HIL=c['HIL'],
+                            out_state_name=c['out_semistate'],
+                            features=c['features'],
+                            rf_n_estimators=c['rf_n_estimators'],
+                            rf_max_features=c['rf_max_features'],
+                            rf_max_depth=c['rf_max_depth'],
+                            rf_min_new_samples_to_retrain=c['rf_min_new_samples_to_retrain'],
+                            rf_retrain_up_to_min=c['rf_retrain_up_to_min'],
+                            auto_init_method=c['auto_init_method'], num_runs=c['num_runs'],
+                            check_lp_steps=c['check_lp_steps'],
+                            semistate=c['semistate'])
+
+        print result
+
+        with open(RESULT_WD + '/id_assignment/' + c['out_semistate'] + '_' + pname, 'wb') as f:
+            pickle.dump((c, result), f)
+
+def run_assign_id_HIL_INIT(ps, c):
+    for pname, p in ps.iteritems():
+        print
+        print
+        print "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+        print pname
+        print
+
+        result = assign_ids_HIL_INIT(p,
+                             frames_per_class=config['frames_per_class'],
+                             HIL=config['HIL'],
+                             features=config['features'],
+                             rf_n_estimators=config['rf_n_estimators'],
+                             rf_max_features=config['rf_max_features'],
+                             rf_max_depth=config['rf_max_depth'],
+                             rf_min_new_samples_to_retrain=config['rf_min_new_samples_to_retrain'],
+                             rf_retrain_up_to_min=config['rf_retrain_up_to_min'],
+                             auto_init_method=config['auto_init_method'], num_runs=config['num_runs'],
+                             check_lp_steps=config['check_lp_steps'],
+                             semistate=config['semistate'],
+                             id_N_propagate=config['lp_id_N_propagate'])
+
+        with open(RESULT_WD + '/id_assignment/' + c['out_semistate'] + '_' + pname, 'wb') as f:
+            pickle.dump((config, result), f)
+
+
 if __name__ == '__main__':
     from core.graph.region_chunk import RegionChunk
     from thesis.config import *
     import cPickle as pickle
     import datetime
+    from thesis.thesis_utils import load_all_projects
+
     p = Project()
     wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
     # wd = '/Users/flipajs/Documents/wd/FERDA/zebrafish_playground'
-    wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
+    # wd = '/Users/flipajs/Documents/wd/FERDA/Camera3'
     # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
     # p.load_semistate('/Users/flipajs/Documen ts/wd/FERDA/Sowbug3', state='eps_edge_filter')
 
@@ -377,49 +436,118 @@ if __name__ == '__main__':
                            'fm_hog.sqlite3',
                            'fm_lbp.sqlite3',
                            ],
-              'rf_min_new_samples_to_retrain': 10,
+              'rf_min_new_samples_to_retrain': 1000000,
               'rf_retrain_up_to_min': 200,
               'rf_min_samples_leaf': 3,
               'rf_max_depth': 10,
               'frames_per_class': 1000,
               'rf_max_features': 0.5,
-              'rf_n_estimators': 30,
+              'rf_n_estimators': 20,
               'auto_init_method': 'max_min',
-              'num_runs': 5,
+              'num_runs': 1,
               'wd': wd,
               'check_lp_steps': True,
               'semistate': 'tracklets_s_classified2',
-              'lp_id_N_propagate': False}
+              'out_semistate': 'lp_id',
+              'lp_id_N_propagate': True}
 
-    # result = assign_ids(p,
-    #                              # frames_per_class=500,
-    #            HIL=config['HIL'],
-    #            features=config['features'],
-    #            rf_n_estimators = config['rf_n_estimators'],
-    #            rf_max_features=config['rf_max_features'],
-    #            rf_max_depth = config['rf_max_depth'],
-    #            rf_min_new_samples_to_retrain=config['rf_min_new_samples_to_retrain'],
-    #            rf_retrain_up_to_min=config['rf_retrain_up_to_min'],
-    #            auto_init_method=config['auto_init_method'], num_runs=config['num_runs'],
-    #            check_lp_steps=config['check_lp_steps'],
-    #            semistate=config['semistate'])
 
-    result = assign_ids_HIL_INIT(p,
-                        frames_per_class=500,
-                        HIL=config['HIL'],
-                        features=config['features'],
-                        rf_n_estimators=config['rf_n_estimators'],
-                        rf_max_features=config['rf_max_features'],
-                        rf_max_depth=config['rf_max_depth'],
-                        rf_min_new_samples_to_retrain=config['rf_min_new_samples_to_retrain'],
-                        rf_retrain_up_to_min=config['rf_retrain_up_to_min'],
-                        auto_init_method=config['auto_init_method'], num_runs=config['num_runs'],
-                        check_lp_steps=config['check_lp_steps'],
-                        semistate=config['semistate'],
-                        id_N_propagate=config['lp_id_N_propagate'])
 
-    with open(RESULT_WD+'/id_assignment/'+wd.split('/')[-1]+dt, 'wb') as f:
-        pickle.dump((config, result), f)
+    ps = load_all_projects()
+    c = dict(config)
+    c['HIL'] = False
+    c['out_semistate'] = 'lp_id'
+    c['check_lp_steps'] = False
+    c['rf_n_estimators'] = 50
+    c['lp_id_N_propagate'] = False
 
-    print
-    print config
+    print "^^^^^^^^^^^^^^^^^^, c['out_semistate'], ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    run_assign_id(ps, c)
+
+
+
+
+    c = dict(config)
+    c['HIL'] = False
+    c['semistate'] = 'tracklets_s_classified_gt'
+    c['out_semistate'] = 'lp_id_SEG'
+    c['check_lp_steps'] = False
+    c['rf_n_estimators'] = 50
+    c['lp_id_N_propagate'] = False
+
+    print "^^^^^^^^^^^^^^^^^^ lp_id_SEG ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    run_assign_id(ps, c)
+
+
+
+
+
+    c = dict(config)
+    c['semistate'] = 'tracklets_s_classified_gt'
+    c['out_semistate'] = 'lp_id_SEG_IDCR'
+    c['HIL'] = False
+    c['check_lp_steps'] = False
+    c['rf_n_estimators'] = 50
+    c['lp_id_N_propagate'] = True
+
+
+    print "^^^^^^^^^^^^^^^^^^ lp_id_SEG_IDCR ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    run_assign_id(ps, c)
+
+
+
+    c = dict(config)
+    c['HIL'] = True
+    c['out_semistate'] = 'lp_id_IDCR_HIL'
+    c['check_lp_steps'] = False
+    c['rf_n_estimators'] = 10
+    c['lp_id_N_propagate'] = True
+
+    print "^^^^^^^^^^^^^^^^^^ lp_id_IDCR_HIL ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    run_assign_id(ps, c)
+
+
+
+
+
+
+
+
+
+    c = dict(config)
+    c['HIL'] = True
+    c['out_semistate'] = 'lp_HIL_INIT'
+    c['check_lp_steps'] = False
+    c['rf_n_estimators'] = 50
+    c['lp_id_N_propagate'] = False
+
+    print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    run_assign_id_HIL_INIT(ps, c)
+
+
+
+
+    c = dict(config)
+    c['semistate'] = 'tracklets_s_classified_gt'
+    c['HIL'] = True
+    c['out_semistate'] = 'lp_HIL_INIT_SEG'
+    c['check_lp_steps'] = False
+    c['rf_n_estimators'] = 50
+    c['lp_id_N_propagate'] = False
+
+    print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT_SEG ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    run_assign_id_HIL_INIT(ps, c)
+
+    c = dict(config)
+    c['semistate'] = 'tracklets_s_classified_gt'
+    c['HIL'] = True
+    c['out_semistate'] = 'lp_HIL_INIT_SEG_IDCR'
+    c['check_lp_steps'] = False
+    c['rf_n_estimators'] = 50
+    c['lp_id_N_propagate'] = True
+
+    print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT_SEG_IDCR ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    run_assign_id_HIL_INIT(ps, c)
+
+
+

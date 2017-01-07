@@ -358,6 +358,9 @@ class GT:
             frames = range(self.min_frame(), self.max_frame())
 
         for frame in frames:
+            if frame== 282:
+                print 282
+
             match[frame] = [None for _ in range(len(project.animals))]
 
             # add chunk ids
