@@ -69,9 +69,9 @@ def assign_ids(p, semistate='tracklets_s_classified',
                rf_max_depth = None,
                rf_min_new_samples_to_retrain=10000,
                rf_retrain_up_to_min=np.inf, auto_init_method='max_sum', num_runs='1',
-               check_lp_steps=False, appendix='', id_N_propagate=True):
+               check_lp_steps=False, appendix='', id_N_propagate=True, id_N_f=True, min_tracklet_len=1):
 
-    p.load_semistate(wd, state=semistate, one_vertex_chunk=True, update_t_nodes=True)
+    p.load_semistate(p.working_directory, state=semistate, one_vertex_chunk=True, update_t_nodes=True)
 
     gt = GT()
     gt.load(p.GT_file)
@@ -86,6 +86,8 @@ def assign_ids(p, semistate='tracklets_s_classified',
     lp.rf_min_samples_leafs = rf_min_samples_leafs
     lp.rf_max_features = rf_max_features
     lp.id_N_propagate = id_N_propagate
+    lp.id_N_f = id_N_f
+    lp.min_tracklet_len = min_tracklet_len
 
     # lp.load_features('fm_basic.sqlite3')
     lp.load_features(features)
@@ -215,9 +217,10 @@ def assign_ids_HIL_INIT(p,
                rf_retrain_up_to_min=np.inf, auto_init_method='max_sum', num_runs='1',
                check_lp_steps=False,
                         appendix='',
-                        id_N_propagate=True):
+                        id_N_propagate=True, id_N_f=True,
+                             min_tracklet_len=1, max_frame_d=100, max_HIL=1000000):
 
-    p.load_semistate(wd, state=semistate, one_vertex_chunk=True, update_t_nodes=True)
+    p.load_semistate(p.working_directory, state=semistate, one_vertex_chunk=True, update_t_nodes=True)
 
     gt = GT()
     gt.load(p.GT_file)
@@ -231,8 +234,10 @@ def assign_ids_HIL_INIT(p,
     lp.rf_n_estimators = rf_n_estimators
     lp.rf_min_samples_leafs = rf_min_samples_leafs
     lp.rf_max_features = rf_max_features
+    lp.min_tracklet_len = min_tracklet_len
 
     lp.id_N_propagate = id_N_propagate
+    lp.id_N_f = id_N_f
     lp.verbose = 3
 
     # lp.load_features('fm_basic.sqlite3')
@@ -263,10 +268,13 @@ def assign_ids_HIL_INIT(p,
             tracklet_gt_map[t_id].add(perm_r[a_id])
             tracklet_gt_map_without_perm[t_id].add(a_id)
 
-    t_id = lp.question_near_assigned(tracklet_gt_map, min_samples=frames_per_class)
-    while t_id is not None:
+    ###########
+    i_HIL = 0
+    t_id = lp.question_near_assigned(tracklet_gt_map, min_samples=frames_per_class, max_frame_d=max_frame_d)
+    while t_id is not None and i_HIL != max_HIL:
         print t_id
-        t_id = lp.question_near_assigned(tracklet_gt_map, min_samples=frames_per_class)
+        t_id = lp.question_near_assigned(tracklet_gt_map, min_samples=frames_per_class, max_frame_d=max_frame_d)
+        i_HIL += 1
 
     # IMPORTANT!
     if HIL:
@@ -346,11 +354,11 @@ def assign_ids_HIL_INIT(p,
         _, _, cc, mc = eval_centroids(p, gt)
         print_coverage(cc, mc)
 
-        results.append({'cc': cc, 'mc': mc, 'tset': init_training_set, 'HIL': run})
+        results.append({'cc': cc, 'mc': mc, 'tset': init_training_set, 'HIL': run, 'HIL_INIT': len(lp.user_decisions)})
 
         # if lp.ignore_inconsistency:
 
-        p.save_semistate(state=out_state_name+'_HIL_init'+'_'+str(i)+appendix)
+        p.save_semistate(state=out_state_name+'_'+str(i)+appendix)
         # else:
         #     p.save_semistate(state=out_state_name+'_'+str(i)+appendix)
 
@@ -376,8 +384,11 @@ def run_assign_id(ps, c):
                             rf_min_new_samples_to_retrain=c['rf_min_new_samples_to_retrain'],
                             rf_retrain_up_to_min=c['rf_retrain_up_to_min'],
                             auto_init_method=c['auto_init_method'], num_runs=c['num_runs'],
+                            id_N_f=c['lp_id_N_f'],
+                             id_N_propagate=c['lp_id_N_propagate'],
                             check_lp_steps=c['check_lp_steps'],
-                            semistate=c['semistate'])
+                            semistate=c['semistate'],
+                            min_tracklet_len=c['min_tracklet_len'])
 
         print result
 
@@ -393,21 +404,25 @@ def run_assign_id_HIL_INIT(ps, c):
         print
 
         result = assign_ids_HIL_INIT(p,
-                             frames_per_class=config['frames_per_class'],
-                             HIL=config['HIL'],
-                             features=config['features'],
-                             rf_n_estimators=config['rf_n_estimators'],
-                             rf_max_features=config['rf_max_features'],
-                             rf_max_depth=config['rf_max_depth'],
-                             rf_min_new_samples_to_retrain=config['rf_min_new_samples_to_retrain'],
-                             rf_retrain_up_to_min=config['rf_retrain_up_to_min'],
-                             auto_init_method=config['auto_init_method'], num_runs=config['num_runs'],
-                             check_lp_steps=config['check_lp_steps'],
-                             semistate=config['semistate'],
-                             id_N_propagate=config['lp_id_N_propagate'])
+                             frames_per_class=c['frames_per_class'],
+                             out_state_name=c['out_semistate'],
+                             HIL=c['HIL'],
+                             features=c['features'],
+                             rf_n_estimators=c['rf_n_estimators'],
+                             rf_max_features=c['rf_max_features'],
+                             rf_max_depth=c['rf_max_depth'],
+                             rf_min_new_samples_to_retrain=c['rf_min_new_samples_to_retrain'],
+                             rf_retrain_up_to_min=c['rf_retrain_up_to_min'],
+                             auto_init_method=c['auto_init_method'], num_runs=c['num_runs'],
+                             check_lp_steps=c['check_lp_steps'],
+                             semistate=c['semistate'],
+                             id_N_f=c['lp_id_N_f'],
+                             id_N_propagate=c['lp_id_N_propagate'],
+                             max_frame_d=c['max_frame_d'],
+                             max_HIL=c['max_HIL'])
 
         with open(RESULT_WD + '/id_assignment/' + c['out_semistate'] + '_' + pname, 'wb') as f:
-            pickle.dump((config, result), f)
+            pickle.dump((c, result), f)
 
 
 if __name__ == '__main__':
@@ -449,105 +464,246 @@ if __name__ == '__main__':
               'check_lp_steps': True,
               'semistate': 'tracklets_s_classified2',
               'out_semistate': 'lp_id',
-              'lp_id_N_propagate': True}
+              'lp_id_N_propagate': True,
+              'lp_id_N_f': True,
+              'min_tracklet_len': 5,
+              'max_frame_d': 100,
+              'max_HIL': 1000000}
 
 
 
     ps = load_all_projects()
+    for pname, p in ps.iteritems():
+        print pname, p.working_directory
+
+
+
+    # c = dict(config)
+    # c['HIL'] = False
+    # c['out_semistate'] = 'lp_id'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = False
+
+    # print "^^^^^^^^^^^^^^^^^^, c['out_semistate'], ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
+    #
+    # c = dict(config)
+    # c['HIL'] = False
+    # c['out_semistate'] = 'lp_clean'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = False
+    # c['lp_id_N_f'] = False
+    #
+    # print "^^^^^^^^^^^^^^^^^^, lp_clean, ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
+    #
+    #
+    # c = dict(config)
+    # c['HIL'] = False
+    # c['semistate'] = 'tracklets_s_classified_gt'
+    # c['out_semistate'] = 'lp_SEG'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = False
+    # c['lp_id_N_f'] = False
+    #
+    # print "^^^^^^^^^^^^^^^^^^, lp_SEG, ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
+    #
+    #
+    # c = dict(config)
+    # c['HIL'] = False
+    # c['out_semistate'] = 'lp_IDCR_f'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = False
+    # c['lp_id_N_f'] = True
+    #
+    # print "^^^^^^^^^^^^^^^^^^, lp_ID_N_f, ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
+    #
+    #
+    # c = dict(config)
+    # c['HIL'] = False
+    # c['out_semistate'] = 'lp_IDCR_full'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = True
+    # c['lp_id_N_f'] = True
+    #
+    # print "^^^^^^^^^^^^^^^^^^, lp_ID_N_f, ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
+    #
+    #
+    # c = dict(config)
+    # c['HIL'] = False
+    # c['semistate'] = 'tracklets_s_classified_gt'
+    # c['out_semistate'] = 'lp_SEG_IDCR_full'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = True
+    # c['lp_id_N_f'] = True
+    #
+    # print "^^^^^^^^^^^^^^^^^^, lp_ID_N_f, ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
+
+
+
+
+    # c = dict(config)
+    # c['HIL'] = False
+    # c['semistate'] = 'tracklets_s_classified_gt'
+    # c['out_semistate'] = 'lp_id_SEG'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = False
+
+    # print "^^^^^^^^^^^^^^^^^^ lp_id_SEG ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
+
+
+
+
+
+    # c = dict(config)
+    # c['semistate'] = 'tracklets_s_classified_gt'
+    # c['out_semistate'] = 'lp_id_SEG_IDCR'
+    # c['HIL'] = False
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = True
+
+
+    # print "^^^^^^^^^^^^^^^^^^ lp_id_SEG_IDCR ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
+
+    # c = dict(config)
+    # c['out_semistate'] = 'lp_id_IDCR'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = True
+
+
+    # print "^^^^^^^^^^^^^^^^^^ lp_id_IDCR ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
+
+
+
+    # # TODO: FAILED!
+    # c = dict(config)
+    # c['HIL'] = True
+    # c['out_semistate'] = 'lp_id_IDCR_HIL'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 10
+    # c['lp_id_N_propagate'] = True
+
+    # print "^^^^^^^^^^^^^^^^^^ lp_id_IDCR_HIL ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
+
+
+
+
+
+
+
+
+
     c = dict(config)
-    c['HIL'] = False
-    c['out_semistate'] = 'lp_id'
-    c['check_lp_steps'] = False
-    c['rf_n_estimators'] = 50
-    c['lp_id_N_propagate'] = False
-
-    print "^^^^^^^^^^^^^^^^^^, c['out_semistate'], ^^^^^^^^^^^^^^^^^^^^^^^^^"
-    run_assign_id(ps, c)
-
-
-
+    # c['out_semistate'] = 'lp_HIL_INIT3'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = False
+    # c['max_frame_d'] = 150
+    #
+    # print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT3 ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id_HIL_INIT(ps, c)
 
     c = dict(config)
-    c['HIL'] = False
+    c['out_semistate'] = 'lp_HIL_INIT3'
     c['semistate'] = 'tracklets_s_classified_gt'
-    c['out_semistate'] = 'lp_id_SEG'
-    c['check_lp_steps'] = False
+    c['check_lp_steps'] = True
     c['rf_n_estimators'] = 50
-    c['lp_id_N_propagate'] = False
+    c['max_frame_d'] = 150
 
-    print "^^^^^^^^^^^^^^^^^^ lp_id_SEG ^^^^^^^^^^^^^^^^^^^^^^^^^"
-    run_assign_id(ps, c)
-
-
-
-
-
-    c = dict(config)
-    c['semistate'] = 'tracklets_s_classified_gt'
-    c['out_semistate'] = 'lp_id_SEG_IDCR'
-    c['HIL'] = False
-    c['check_lp_steps'] = False
-    c['rf_n_estimators'] = 50
-    c['lp_id_N_propagate'] = True
-
-
-    print "^^^^^^^^^^^^^^^^^^ lp_id_SEG_IDCR ^^^^^^^^^^^^^^^^^^^^^^^^^"
-    run_assign_id(ps, c)
-
-
-
-    c = dict(config)
-    c['HIL'] = True
-    c['out_semistate'] = 'lp_id_IDCR_HIL'
-    c['check_lp_steps'] = False
-    c['rf_n_estimators'] = 10
-    c['lp_id_N_propagate'] = True
-
-    print "^^^^^^^^^^^^^^^^^^ lp_id_IDCR_HIL ^^^^^^^^^^^^^^^^^^^^^^^^^"
-    run_assign_id(ps, c)
-
-
-
-
-
-
-
-
-
-    c = dict(config)
-    c['HIL'] = True
-    c['out_semistate'] = 'lp_HIL_INIT'
-    c['check_lp_steps'] = False
-    c['rf_n_estimators'] = 50
-    c['lp_id_N_propagate'] = False
-
-    print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT3 ^^^^^^^^^^^^^^^^^^^^^^^^^"
     run_assign_id_HIL_INIT(ps, c)
 
+    # c = dict(config)
+    # c['out_semistate'] = 'lp_HIL_INIT2'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = False
+
+    # print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id_HIL_INIT(ps, c)
 
 
 
-    c = dict(config)
-    c['semistate'] = 'tracklets_s_classified_gt'
-    c['HIL'] = True
-    c['out_semistate'] = 'lp_HIL_INIT_SEG'
-    c['check_lp_steps'] = False
-    c['rf_n_estimators'] = 50
-    c['lp_id_N_propagate'] = False
 
-    print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT_SEG ^^^^^^^^^^^^^^^^^^^^^^^^^"
-    run_assign_id_HIL_INIT(ps, c)
+    # c = dict(config)
+    # c['semistate'] = 'tracklets_s_classified_gt'
+    # c['out_semistate'] = 'lp_HIL_INIT_SEG'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = False
 
-    c = dict(config)
-    c['semistate'] = 'tracklets_s_classified_gt'
-    c['HIL'] = True
-    c['out_semistate'] = 'lp_HIL_INIT_SEG_IDCR'
-    c['check_lp_steps'] = False
-    c['rf_n_estimators'] = 50
-    c['lp_id_N_propagate'] = True
+    # print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT_SEG ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id_HIL_INIT(ps, c)
 
-    print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT_SEG_IDCR ^^^^^^^^^^^^^^^^^^^^^^^^^"
-    run_assign_id_HIL_INIT(ps, c)
+
+    # c = dict(config)
+    # c['out_semistate'] = 'lp_HIL_INIT_10'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = False
+    # c['max_frame_d'] = 300
+    # c['max_HIL'] = 10
+    # c['frames_per_class'] = 5000
+
+    # print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT_10 ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id_HIL_INIT(ps, c)
+
+    # c = dict(config)
+    # c['semistate'] = 'tracklets_s_classified_gt'
+    # c['out_semistate'] = 'lp_HIL_INIT_IDCR'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = True
+
+    # print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT_IDCR ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id_HIL_INIT(ps, c)
+
+
+    # c = dict(config)
+    # c['semistate'] = 'tracklets_s_classified_gt'
+    # c['out_semistate'] = 'lp_HIL_INIT_SEG_IDCR2'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 50
+    # c['lp_id_N_propagate'] = True
+
+    # print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT_SEG_IDCR2 ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id_HIL_INIT(ps, c)
+
+
+
+
+
+
+
+
+
+    # c = dict(config)
+    # c['HIL'] = True
+    # c['out_semistate'] = 'lp_id_IDCR_HIL'
+    # c['check_lp_steps'] = False
+    # c['rf_n_estimators'] = 10
+    # c['lp_id_N_propagate'] = True
+    # c['min_tracklet_len'] = 10
+
+    # print "^^^^^^^^^^^^^^^^^^ lp_id_IDCR_HIL ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id(ps, c)
 
 
 
