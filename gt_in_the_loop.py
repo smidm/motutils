@@ -442,15 +442,43 @@ if __name__ == '__main__':
 
     dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    config = { 'HIL': False,
+    # config = { 'HIL': False,
+    #           'features': [
+    #                        'fm_idtracker_i.sqlite3',
+    #                        # 'fm_idtracker_c.sqlite3',
+    #                        'fm_basic.sqlite3',
+    #                        'fm_colornames.sqlite3',
+    #                        'fm_hog.sqlite3',
+    #                        'fm_lbp.sqlite3',
+    #                        ],
+    #           'rf_min_new_samples_to_retrain': 1000000,
+    #           'rf_retrain_up_to_min': 200,
+    #           'rf_min_samples_leaf': 3,
+    #           'rf_max_depth': 10,
+    #           'frames_per_class': 1000,
+    #           'rf_max_features': 0.5,
+    #           'rf_n_estimators': 20,
+    #           'auto_init_method': 'max_min',
+    #           'num_runs': 1,
+    #           'wd': wd,
+    #           'check_lp_steps': True,
+    #           'semistate': 'tracklets_s_classified2',
+    #           'out_semistate': 'lp_id',
+    #           'lp_id_N_propagate': True,
+    #           'lp_id_N_f': True,
+    #           'min_tracklet_len': 5,
+    #           'max_frame_d': 100,
+    #           'max_HIL': 1000000}
+
+    config = {'HIL': False,
               'features': [
-                           'fm_idtracker_i.sqlite3',
-                           # 'fm_idtracker_c.sqlite3',
-                           'fm_basic.sqlite3',
-                           'fm_colornames.sqlite3',
-                           'fm_hog.sqlite3',
-                           'fm_lbp.sqlite3',
-                           ],
+                  'fm_idtracker_i.sqlite3',
+                  # 'fm_idtracker_c.sqlite3',
+                  'fm_basic.sqlite3',
+                  'fm_colornames.sqlite3',
+                  'fm_hog.sqlite3',
+                  'fm_lbp.sqlite3',
+              ],
               'rf_min_new_samples_to_retrain': 1000000,
               'rf_retrain_up_to_min': 200,
               'rf_min_samples_leaf': 3,
@@ -476,6 +504,28 @@ if __name__ == '__main__':
     for pname, p in ps.iteritems():
         print pname, p.working_directory
 
+
+    ps2 = {}
+    for pname, p in ps.iteritems():
+        if pname == 'Cam1':
+            ps2[pname] = p
+
+    ps = ps2
+
+    c = dict(config)
+    c['HIL'] = False
+    c['features'] = [
+                  'fm_colornames_corr_lvl1.sqlite3',
+              ]
+
+    c['out_semistate'] = 'lp_HIL_INIT3_colornames_corr'
+    c['check_lp_steps'] = True
+    c['rf_n_estimators'] = 50
+    c['max_frame_d'] = 150
+    c['semistate'] = 'tracklets_s_classified_gt'
+
+    print "^^^^^^^^^^^^^^^^^^ ... ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    run_assign_id_HIL_INIT(ps, c)
 
 
     # c = dict(config)
@@ -620,15 +670,15 @@ if __name__ == '__main__':
     # print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT3 ^^^^^^^^^^^^^^^^^^^^^^^^^"
     # run_assign_id_HIL_INIT(ps, c)
 
-    c = dict(config)
-    c['out_semistate'] = 'lp_HIL_INIT3'
-    c['semistate'] = 'tracklets_s_classified_gt'
-    c['check_lp_steps'] = True
-    c['rf_n_estimators'] = 50
-    c['max_frame_d'] = 150
-
-    print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT3 ^^^^^^^^^^^^^^^^^^^^^^^^^"
-    run_assign_id_HIL_INIT(ps, c)
+    # c = dict(config)
+    # c['out_semistate'] = 'lp_HIL_INIT3'
+    # c['semistate'] = 'tracklets_s_classified_gt'
+    # c['check_lp_steps'] = True
+    # c['rf_n_estimators'] = 50
+    # c['max_frame_d'] = 150
+    #
+    # print "^^^^^^^^^^^^^^^^^^ lp_HIL_INIT3 ^^^^^^^^^^^^^^^^^^^^^^^^^"
+    # run_assign_id_HIL_INIT(ps, c)
 
     # c = dict(config)
     # c['out_semistate'] = 'lp_HIL_INIT2'
