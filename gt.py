@@ -3,6 +3,8 @@ import sys
 import warnings
 import numpy as np
 
+# TODO: frame offset
+
 class GT:
     """
     None means not defined
@@ -32,6 +34,10 @@ class GT:
         self.__gt_id_to_real_permutation = {}
 
         self.__init_permutations()
+
+        self.__x_offset = 0
+        self.__y_offset = 0
+        self.__frames_offset = 0
 
         self.break_on_inconsistency = False
 
@@ -112,28 +118,47 @@ class GT:
 
         pass
 
+    def set_offset(self, x=0, y=0, frames=0):
+        """
+        There is possibility to set crop on video (e. g. when there is space without information, to speed up whole process).
+        To compenstate this, x, y, frame will be added to GT values
+        Args:
+            x: 
+            y: 
+            frames: 
+
+        Returns:
+
+        """
+
+        self.__x_offset = x
+        self.__y_offset = y
+        self.__frames_offset = frames
+
     def __set_frame(self, d, frame):
         if frame not in d:
             d[frame] = [None for _ in range(self.__num_ids)]
 
     def get_clear_positions(self, frame):
+        frame += self.__frames_offset
         p = [None for _ in range(self.__num_ids)]
         if frame in self.__positions:
             for i, it in enumerate(self.__positions[frame]):
                 if it is not None:
                     y, x, type_ = it
                     if type_ == 1:
-                        p[self.__permutation[i]] = (y, x)
+                        p[self.__permutation[i]] = (y + self.__y_offset, x + self.__x_offset)
 
         return p
 
     def get_positions(self, frame):
+        frame += self.__frames_offset
         p = [None for _ in range(self.__num_ids)]
         if frame in self.__positions:
             for i, it in enumerate(self.__positions[frame]):
                 if it is not None:
                     y, x, _ = it
-                    p[self.__permutation[i]] = (y, x)
+                    p[self.__permutation[i]] = (y + self.__y_offset, x + self.__x_offset)
 
         return p
 
@@ -151,7 +176,8 @@ class GT:
                 if it is not None:
                     y1, x1, y2, x2, type_  = it
                     if type_ == 1:
-                        p[self.__permutation[i]] = (y1, x1, y2, x2)
+                        p[self.__permutation[i]] = (y1 + self.__y_offset, x1 + self.__x_offset,
+                                                    y2 + self.__y_offset, x2 + self.__x_offset)
 
         return p
 
@@ -162,7 +188,7 @@ class GT:
     def set_position(self, frame, id_, y, x, type_=1):
         self.__set_frame(self.__positions, frame)
         id_ = self.__permutation[id_]
-        self.__positions[frame][id_] = (y, x, type_)
+        self.__positions[frame][id_] = (y - self.__y_offset, x - self.__y_offset, type_)
 
     def save(self, path, make_copy=True):
         import os
@@ -358,9 +384,6 @@ class GT:
             frames = range(self.min_frame(), self.max_frame())
 
         for frame in frames:
-            if frame== 282:
-                print 282
-
             match[frame] = [None for _ in range(len(project.animals))]
 
             # add chunk ids
@@ -387,7 +410,7 @@ class GT:
             pos = self.__positions[frame]
             if None in pos:
                 continue
-            pos = np.array([(x[0], x[1]) for x in pos])
+            pos = np.array([(x[0] + self.__y_offset, x[1] + self.__x_offset) for x in pos])
 
             centroids[np.isnan(centroids)] = np.inf
             try:
@@ -600,7 +623,7 @@ class GT:
 
         return 0
 
-    def  get_class_and_id(self, tracklet, project, verbose=0):
+    def get_class_and_id(self, tracklet, project, verbose=0):
         if verbose:
             print "ASKING ABOUT ID ", tracklet.id()
 
