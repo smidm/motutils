@@ -407,7 +407,7 @@ class GT:
             if len(centroids) == 0:
                 continue
 
-            pos = self.__positions[frame]
+            pos = self.__positions[frame + self.__frames_offset]
             if None in pos:
                 continue
             pos = np.array([(x[0] + self.__y_offset, x[1] + self.__x_offset) for x in pos])
@@ -464,6 +464,16 @@ class GT:
 
         return match
 
+    def tracklet_id_set_without_checks(self, tracklet, project):
+        match = self.match_on_data(project, range(tracklet.start_frame(project.gm),
+                                                  tracklet.end_frame(project.gm) + 1, 10))
+
+        keys = sorted([k for k in match.iterkeys()])
+        match = [match[k] for k in keys]
+
+        ids = self.__get_ids_from_match(match[0], tracklet.id())
+        return [self.__permutation[id_] for id_ in ids]
+
     def tracklet_id_set(self, tracklet, project):
         """
 
@@ -475,7 +485,8 @@ class GT:
         Returns:
 
         """
-        match = self.match_on_data(project, range(tracklet.start_frame(project.gm), tracklet.end_frame(project.gm) + 1))
+        match = self.match_on_data(project, range(tracklet.start_frame(project.gm),
+                                                  tracklet.end_frame(project.gm) + 1))
 
         keys = sorted([k for k in match.iterkeys()])
         match = [match[k] for k in keys]
