@@ -394,8 +394,6 @@ class GT:
                 r_t = project.gm.regions_and_t_ids_in_t(frame)
                 regions = [project.rm[x[0]] for x in r_t]
                 ch_ids = [x[1] for x in r_t]
-            elif match_on=='centroids':
-                pass
             else:
                 regions = project.gm.regions_in_t(frame)
 
