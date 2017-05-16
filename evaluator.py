@@ -272,7 +272,8 @@ def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, ro
         # for tr in range(num_trackers):
             for i in range(num_objects):
                 if perms[0][i] == id_:
-                    gt_color = colors_[perms[0][i]]
+                    # gt_color = colors_[perms[0][i]]
+                    gt_color = colors_[id_]
 
             if num_trackers == 2:
                 y = id_ * row_h * num_trackers + row_h/2
@@ -297,7 +298,7 @@ def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, ro
     # cv2.imwrite(p.working_directory+'/temp/im.png', im)
 
     import matplotlib.pyplot as plt
-    plt.figure()
+    fig = plt.figure()
     im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     print im.shape
     plt.imshow(im)
@@ -320,8 +321,11 @@ def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, ro
 
     if impath is None:
         impath = p.working_directory+'/temp/overall_comparison.png'
+
     plt.savefig(impath, bbox_inches='tight', pad_inches=0, dpi=512)
-    # plt.show()
+    fig.tight_layout()
+
+    plt.show()
 
 def eval_centroids(p, gt, match=None):
     data = []
@@ -363,11 +367,12 @@ def print_coverage(c_coverage, m_coverage):
     print "unknown pose: {:.2%}".format(1 - (c_coverage + m_coverage))
 
 
-def compare_trackers(p, idtracker_path, impath=None, name=None, skip_idtracker=False):
+def compare_trackers(p, idtracker_path=None, impath=None, name=None, skip_idtracker=False, gt_ferda_perm=None, gt=None):
     from utils.idtracker import load_idtracker_data
 
-    gt = GT()
-    gt.load(p.GT_file)
+    if gt is None:
+        gt = GT()
+        gt.load(p.GT_file)
 
     if not skip_idtracker:
         data, _ = load_idtracker_data(idtracker_path, p, gt)
@@ -397,7 +402,14 @@ def compare_trackers(p, idtracker_path, impath=None, name=None, skip_idtracker=F
     match2, perm2, f_c_coverage, f_m_coverage = eval_centroids(p, gt)
     print_coverage(f_c_coverage, f_m_coverage)
 
-    draw_id_t_img(p, [match, match2], [perm, perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200], impath=impath)
+    if not skip_idtracker:
+        draw_id_t_img(p, [match, match2], [perm, perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200], impath=impath)
+    else:
+        if gt_ferda_perm is not None:
+            perm2 = gt_ferda_perm
+        draw_id_t_img(p, [match2], [perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200],
+                      impath=impath)
+
 
     return (idtracker_c_coverage, idtracker_m_coverage, f_c_coverage, f_m_coverage)
 

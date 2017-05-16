@@ -75,6 +75,9 @@ class GT:
     def get_permutation_reversed(self):
         return self.__gt_id_to_real_permutation
 
+    def get_permutation_dict(self):
+        return self.__permutation
+
     def get_permutation(self, data):
         perm = {}
         for frame, id_, y, x in data:
