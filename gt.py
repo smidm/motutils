@@ -35,6 +35,16 @@ class GT:
 
         self.__init_permutations()
 
+        # gt offset relative to original video
+        """
+        if working in roi y: 100, x: 200, and starting in frame 100
+        __gt_x_offset = 100
+        """
+        self.__gt_x_offset = 0
+        self.__gt_y_offset = 0
+        self.__gt_frames_offset = 0
+
+        # working offset, set by inspected project relative to original video
         self.__x_offset = 0
         self.__y_offset = 0
         self.__frames_offset = 0
@@ -121,6 +131,11 @@ class GT:
 
         pass
 
+    def set_gt_offset(self, x=0, y=0, frames=0):
+        self.__gt_x_offset = x
+        self.__gt_y_offset = y
+        self.__gt_frames_offset = frames
+
     def set_offset(self, x=0, y=0, frames=0):
         """
         There is possibility to set crop on video (e. g. when there is space without information, to speed up whole process).
@@ -134,16 +149,16 @@ class GT:
 
         """
 
-        self.__x_offset = x
-        self.__y_offset = y
-        self.__frames_offset = frames
+        self.__x_offset = self.__gt_x_offset - x
+        self.__y_offset = self.__gt_y_offset - y
+        self.__frames_offset = self.__gt_frames_offset - frames
 
     def __set_frame(self, d, frame):
         if frame not in d:
             d[frame] = [None for _ in range(self.__num_ids)]
 
     def get_clear_positions(self, frame):
-        frame += self.__frames_offset
+        frame -= self.__frames_offset
         p = [None for _ in range(self.__num_ids)]
         if frame in self.__positions:
             for i, it in enumerate(self.__positions[frame]):
@@ -155,7 +170,7 @@ class GT:
         return p
 
     def get_positions(self, frame):
-        frame += self.__frames_offset
+        frame -= self.__frames_offset
         p = [None for _ in range(self.__num_ids)]
         if frame in self.__positions:
             for i, it in enumerate(self.__positions[frame]):
@@ -408,7 +423,7 @@ class GT:
             if len(centroids) == 0:
                 continue
 
-            pos = self.__positions[frame + self.__frames_offset]
+            pos = self.__positions[frame - self.__frames_offset]
             if None in pos:
                 continue
             pos = np.array([(x[0] + self.__y_offset, x[1] + self.__x_offset) for x in pos])
