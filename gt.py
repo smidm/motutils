@@ -58,7 +58,6 @@ class GT:
             self.__gt_id_to_real_permutation[id_] = id_
             self.__permutation[id_] = id_
 
-
     def set_permutation_reversed(self, data):
         self.__permutation = self.get_permutation(data)
         temp = dict(self.__permutation)
