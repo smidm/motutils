@@ -3,7 +3,6 @@ import sys
 import warnings
 import numpy as np
 
-# TODO: frame offset
 
 class GT:
     """
