@@ -367,7 +367,8 @@ def print_coverage(c_coverage, m_coverage):
     print "unknown pose: {:.2%}".format(1 - (c_coverage + m_coverage))
 
 
-def compare_trackers(p, idtracker_path=None, impath=None, name=None, skip_idtracker=False, gt_ferda_perm=None, gt=None):
+def compare_trackers(p, idtracker_path=None, impath=None, name=None, skip_idtracker=False,
+                     gt_ferda_perm=None, gt=None, draw=True):
     from utils.idtracker import load_idtracker_data
 
     if gt is None:
