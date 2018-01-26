@@ -334,6 +334,12 @@ def eval_centroids(p, gt, match=None):
         for t in p.chm.chunks_in_frame(frame):
             if len(t.P) == 1:
                 id_ = list(t.P)[0]
+
+                if id_ > len(p.animals):
+                    import warnings
+                    warnings.warn("id_ > num animals t_id: {} id: ${}".format(t.id(), id_))
+                    continue
+
                 c = p.rm[t.r_id_in_t(frame, p.gm)].centroid()
                 data[frame][id_][0] = c[0]
                 data[frame][id_][1] = c[1]
