@@ -97,7 +97,8 @@ class Evaluator:
         mistakes_len = 0
         num_mistakes = 0
 
-        mistakes = {}
+        mistakes = []
+
         gts = perm
         frame = 0
         for it in match.itervalues():
@@ -114,6 +115,8 @@ class Evaluator:
                 elif gt_val != -1:
                     num_mistakes += 1
                     mistakes_len += 1
+
+                    mistakes.append((frame, gt_val))
                 else:
                     not_m = True
 
@@ -121,6 +124,8 @@ class Evaluator:
                 print frame, perm, it
 
             frame += 1
+
+        print "Mistakes: ", mistakes
 
         c_coverage = single_len/float(len(project.animals)*max_f)
         m_coverage = mistakes_len / float(len(project.animals) * max_f)
@@ -130,7 +135,7 @@ class Evaluator:
         # print "unknown pose: {:.2%}".format(1-(m_coverage+c_coverage))
         # # print "single mistakes coverage: {:.2%}".format(mistakes_len/float(single_gt_len))
 
-        return c_coverage, m_coverage
+        return c_coverage, m_coverage, single_len, mistakes_len
 
     def evaluate_FERDA(self, project, frame_limits_start=0, frame_limits_end=-1, permutation_frame=0, step=1):
         from core.project.export import ferda_trajectories_dict
@@ -338,7 +343,7 @@ def eval_centroids(p, gt, match=None):
 
                 if id_ >= len(p.animals):
                     import warnings
-                    warnings.warn("id_ > num animals t_id: {} id: ${}".format(t.id(), id_))
+                    warnings.warn("id_ > num animals t_id: {} id: {}".format(t.id(), id_))
                     continue
 
                 c = p.rm[t.r_id_in_t(frame, p.gm)].centroid()
@@ -365,13 +370,13 @@ def eval_centroids(p, gt, match=None):
         perm[i] = m_[i]
 
     ev = Evaluator(None, gt)
-    f_c_coverage, f_m_coverage = ev.eval_ids_from_match(p, match, perm)
+    f_c_coverage, f_m_coverage, single_len, mistakes_len = ev.eval_ids_from_match(p, match, perm)
 
-    return match, perm, f_c_coverage, f_m_coverage
+    return match, perm, f_c_coverage, f_m_coverage, single_len, mistakes_len
 
-def print_coverage(c_coverage, m_coverage):
-    print "correct pose: {:.2%}".format(c_coverage)
-    print "wrong pose: {:.2%}".format(m_coverage)
+def print_coverage(c_coverage, m_coverage, singles_len='undef', mistakes_len='undef'):
+    print "correct pose: {:.2%} (#{} frames)".format(c_coverage, singles_len)
+    print "wrong pose: {:.2%} (#{} frames)".format(m_coverage, mistakes_len)
     print "unknown pose: {:.2%}".format(1 - (c_coverage + m_coverage))
 
 
@@ -400,24 +405,26 @@ def compare_trackers(p, idtracker_path=None, impath=None, name=None, skip_idtrac
         for i in range(len(p.animals)):
             perm[i] = m_[i]
 
+    idtracker_m_coverage, idtracker_c_coverage = -1, -1
     if not skip_idtracker:
         print "IdTracker:"
         ev = Evaluator(None, gt)
-        idtracker_c_coverage, idtracker_m_coverage = ev.eval_ids_from_match(p, match, perm)
+        idtracker_c_coverage, idtracker_m_coverage, singles_len, mistakes_len = ev.eval_ids_from_match(p, match, perm)
 
         print_coverage(idtracker_c_coverage, idtracker_m_coverage)
 
     print "FERDA:"
-    match2, perm2, f_c_coverage, f_m_coverage = eval_centroids(p, gt)
-    print_coverage(f_c_coverage, f_m_coverage)
+    match2, perm2, f_c_coverage, f_m_coverage, singles_len, mistakes_len = eval_centroids(p, gt)
+    print_coverage(f_c_coverage, f_m_coverage, singles_len=singles_len, mistakes_len=mistakes_len)
 
-    if not skip_idtracker:
-        draw_id_t_img(p, [match, match2], [perm, perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200], impath=impath)
-    else:
-        if gt_ferda_perm is not None:
-            perm2 = gt_ferda_perm
-        draw_id_t_img(p, [match2], [perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200],
-                      impath=impath)
+    if draw:
+        if not skip_idtracker:
+            draw_id_t_img(p, [match, match2], [perm, perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200], impath=impath)
+        else:
+            if gt_ferda_perm is not None:
+                perm2 = gt_ferda_perm
+            draw_id_t_img(p, [match2], [perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200],
+                          impath=impath)
 
 
     return (idtracker_c_coverage, idtracker_m_coverage, f_c_coverage, f_m_coverage)
