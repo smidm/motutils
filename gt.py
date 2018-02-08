@@ -202,9 +202,10 @@ class GT:
         return self.get_clear_positions(frame)[id_]
 
     def set_position(self, frame, id_, y, x, type_=1):
+        frame -= self.__frames_offset
         self.__set_frame(self.__positions, frame)
         id_ = self.__permutation[id_]
-        self.__positions[frame][id_] = (y - self.__y_offset, x - self.__y_offset, type_)
+        self.__positions[frame][id_] = (y - self.__y_offset, x - self.__x_offset, type_)
 
     def save(self, path, make_copy=True):
         import os
@@ -401,6 +402,9 @@ class GT:
 
         for frame in frames:
             match[frame] = [None for _ in range(len(project.animals))]
+
+            if frame >= 2122:
+                pass
 
             # add chunk ids
             if match_on=='tracklets':

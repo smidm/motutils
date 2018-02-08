@@ -76,21 +76,70 @@ class Evaluator:
         print "total mistakes coverage: {:.2%}".format(mistakes_len/float(len(project.animals)*max_f))
         print "single mistakes coverage: {:.2%}".format(mistakes_len/float(single_gt_len))
 
+    # def eval_ids_from_match(self, project, match, perm, frames=None, max_d=5, verbose=0):
+    #     # print "evaluation in progress..."
+    #
+    #     t_id_map = {}
+    #
+    #     max_f = max(match.iterkeys())
+    #
+    #     # max_f = 0
+    #     # for frame, it in match.iteritems():
+    #     #     max_f = max(max_f, frame)
+    #     #     for id_, t_id in enumerate(it):
+    #     #         if t_id not in t_id_map:
+    #     #             t_id_map[t_id] = set()
+    #     #
+    #     #         t_id_map[t_id].add(id_)
+    #
+    #     single_gt_len = 0
+    #     single_len = 0
+    #     mistakes_len = 0
+    #     num_mistakes = 0
+    #
+    #     mistakes = []
+    #
+    #     gts = perm
+    #     frame = 0
+    #     for it in match.itervalues():
+    #         not_m = False
+    #         for val, i in enumerate(it):
+    #             gt_val = -1
+    #             if i is not None:
+    #                 gt_val = gts[i]
+    #
+    #             single_gt_len += 1
+    #
+    #             if val == gt_val:
+    #                 single_len += 1
+    #             elif gt_val != -1:
+    #                 num_mistakes += 1
+    #                 mistakes_len += 1
+    #
+    #                 mistakes.append((frame, gt_val))
+    #             else:
+    #                 not_m = True
+    #
+    #         if not_m and verbose > 0:
+    #             print frame, perm, it
+    #
+    #         frame += 1
+    #
+    #     print "Mistakes: ", mistakes
+    #
+    #     c_coverage = single_len/float(len(project.animals)*max_f)
+    #     m_coverage = mistakes_len / float(len(project.animals) * max_f)
+    #     # print "correct pose: {:.2%}".format(c_coverage)
+    #     # # print "single correct coverage: {:.2%} ({})".format(single_len/float(single_gt_len), single_len)
+    #     # print "wrong pose: {:.2%}".format(m_coverage)
+    #     # print "unknown pose: {:.2%}".format(1-(m_coverage+c_coverage))
+    #     # # print "single mistakes coverage: {:.2%}".format(mistakes_len/float(single_gt_len))
+    #
+    #     return c_coverage, m_coverage, single_len, mistakes_len
+
     def eval_ids_from_match(self, project, match, perm, frames=None, max_d=5, verbose=0):
         # print "evaluation in progress..."
-
-        t_id_map = {}
-
         max_f = max(match.iterkeys())
-
-        # max_f = 0
-        # for frame, it in match.iteritems():
-        #     max_f = max(max_f, frame)
-        #     for id_, t_id in enumerate(it):
-        #         if t_id not in t_id_map:
-        #             t_id_map[t_id] = set()
-        #
-        #         t_id_map[t_id].add(id_)
 
         single_gt_len = 0
         single_len = 0
