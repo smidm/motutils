@@ -146,26 +146,32 @@ class Evaluator:
         mistakes_len = 0
         num_mistakes = 0
 
+        mistaken_tracklets = set()
         mistakes = []
 
         gts = perm
         frame = 0
         for it in match.itervalues():
             not_m = False
-            for val, i in enumerate(it):
-                gt_val = -1
-                if i is not None:
-                    gt_val = gts[i]
+            for i, tracklet_id in enumerate(it):
+                val = None
+                try:
+                    val = list(project.chm[tracklet_id].P)[0]
+                except:
+                    pass
+
+                gt_val = gts[i]
 
                 single_gt_len += 1
 
                 if val == gt_val:
                     single_len += 1
-                elif gt_val != -1:
+                elif val is not None:
                     num_mistakes += 1
                     mistakes_len += 1
 
-                    mistakes.append((frame, gt_val))
+                    mistakes.append((frame, gt_val, tracklet_id))
+                    mistaken_tracklets.add(project.chm[tracklet_id])
                 else:
                     not_m = True
 
@@ -175,6 +181,9 @@ class Evaluator:
             frame += 1
 
         print "Mistakes: ", mistakes
+        print "Mistaken tracklets (#{}): ".format(len(mistaken_tracklets))
+        for t in mistaken_tracklets:
+            print t
 
         c_coverage = single_len/float(len(project.animals)*max_f)
         m_coverage = mistakes_len / float(len(project.animals) * max_f)
@@ -405,18 +414,21 @@ def eval_centroids(p, gt, match=None):
     data = np.array(data)
 
     if match is None:
-        match = gt.match_on_data(p, data_centroids=data, match_on='centroids', max_d=25, frames=range(len(data)))
+        # match = gt.match_on_data(p, data_centroids=data, match_on='centroids', max_d=25, frames=range(len(data)))
+        match = gt.match_on_data(p, match_on='tracklets', max_d=5, frames=range(len(data)))
 
-    freq = np.zeros((len(p.animals), len(p.animals)), dtype=np.int)
-    for it in match.itervalues():
-        for i, val in enumerate(it):
-            freq[i][val] += 1
+    # freq = np.zeros((len(p.animals), len(p.animals)), dtype=np.int)
+    # for it in match.itervalues():
+    #     for i, val in enumerate(it):
+    #         freq[i][val] += 1
+    #
+    # m_ = np.argmax(freq, axis=0)
+    # perm = {}
+    #
+    # for i in range(len(p.animals)):
+    #     perm[i] = m_[i]
 
-    m_ = np.argmax(freq, axis=0)
-    perm = {}
-
-    for i in range(len(p.animals)):
-        perm[i] = m_[i]
+    perm = gt.get_permutation_dict()
 
     ev = Evaluator(None, gt)
     f_c_coverage, f_m_coverage, single_len, mistakes_len = ev.eval_ids_from_match(p, match, perm)
