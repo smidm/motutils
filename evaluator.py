@@ -414,6 +414,7 @@ def eval_centroids(p, gt, match=None):
     data = np.array(data)
 
     if match is None:
+        # TODO: max_d is an important parameter. Document it and put it into GUI!
         # match = gt.match_on_data(p, data_centroids=data, match_on='centroids', max_d=25, frames=range(len(data)))
         match = gt.match_on_data(p, match_on='tracklets', max_d=5, frames=range(len(data)))
 
