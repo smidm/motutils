@@ -2,6 +2,7 @@ import cPickle as pickle
 import sys
 import warnings
 import numpy as np
+import tqdm
 
 
 class GT:
@@ -387,6 +388,17 @@ class GT:
         print "DONE"
 
     def match_on_data(self, project, frames=None, max_d=5, data_centroids=None, match_on='tracklets', permute=False):
+        """
+        Match ground truth on tracklets or regions.
+
+        :param project: Project() instance
+        :param frames: list or None for all frames where gt is defined
+        :param max_d: maximum euclidean distance in px to match
+        :param data_centroids: centroids for tracklets or regions, None to compute
+        :param match_on: 'tracklets' or 'regions'
+        :param permute:
+        :return: match, match[frame][gt position id]: chunk or region id
+        """
         from scipy.spatial.distance import cdist
         from utils.misc import print_progress
         from itertools import izip
@@ -400,14 +412,14 @@ class GT:
         if frames is None:
             frames = range(self.min_frame(), self.max_frame())
 
-        for frame in frames:
+        for frame in tqdm.tqdm(frames):
             match[frame] = [None for _ in range(len(project.animals))]
 
             if frame >= 2122:
                 pass
 
             # add chunk ids
-            if match_on=='tracklets':
+            if match_on == 'tracklets':
                 r_t = project.gm.regions_and_t_ids_in_t(frame)
                 regions = [project.rm[x[0]] for x in r_t]
                 ch_ids = [x[1] for x in r_t]
@@ -429,6 +441,7 @@ class GT:
             if None in pos:
                 continue
             pos = np.array([(x[0] + self.__y_offset, x[1] + self.__x_offset) for x in pos])
+            # pos = np.array([(y + self.__y_offset, x + self.__x_offset) for y, x in pos])  # check and replace line above
 
             centroids[np.isnan(centroids)] = np.inf
             try:
@@ -451,7 +464,7 @@ class GT:
                                 match[frame][a_id] = t_id
                                 break
                     elif match_on == 'centroids':
-                        pass
+                        raise Exception('not implemented')
                     else:
                         for r in regions:
                             if r.is_inside(pos[a_id], tolerance=max_d):
