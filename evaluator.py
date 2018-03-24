@@ -57,24 +57,24 @@ class Evaluator:
                     mistakes[t.id()] = gts
 
 
-            # if len(t.P) == 0 and len(gts) == 1:
-            #     num_mistakes += 1
-            #     mistakes_len += le
-            #     mistakes[t.id()] = gts
-            #
-            # elif len(t.P) == 1:
-            #     if t.P == gts:
-            #         single_len += le
-            #     else:
-            #         num_mistakes += 1
-            #         mistakes_len += le
-            #
-            #         mistakes[t.id()] = gts
+                    # if len(t.P) == 0 and len(gts) == 1:
+                    #     num_mistakes += 1
+                    #     mistakes_len += le
+                    #     mistakes[t.id()] = gts
+                    #
+                    # elif len(t.P) == 1:
+                    #     if t.P == gts:
+                    #         single_len += le
+                    #     else:
+                    #         num_mistakes += 1
+                    #         mistakes_len += le
+                    #
+                    #         mistakes[t.id()] = gts
 
-        print "total correct coverage: {:.2%}".format(single_len/float(len(project.animals)*max_f))
-        print "single correct coverage: {:.2%}".format(single_len/float(single_gt_len))
-        print "total mistakes coverage: {:.2%}".format(mistakes_len/float(len(project.animals)*max_f))
-        print "single mistakes coverage: {:.2%}".format(mistakes_len/float(single_gt_len))
+        print "total correct coverage: {:.2%}".format(single_len / float(len(project.animals) * max_f))
+        print "single correct coverage: {:.2%}".format(single_len / float(single_gt_len))
+        print "total mistakes coverage: {:.2%}".format(mistakes_len / float(len(project.animals) * max_f))
+        print "single mistakes coverage: {:.2%}".format(mistakes_len / float(single_gt_len))
 
     # def eval_ids_from_match(self, project, match, perm, frames=None, max_d=5, verbose=0):
     #     # print "evaluation in progress..."
@@ -185,7 +185,7 @@ class Evaluator:
         for t in mistaken_tracklets:
             print t
 
-        c_coverage = single_len/float(len(project.animals)*max_f)
+        c_coverage = single_len / float(len(project.animals) * max_f)
         m_coverage = mistakes_len / float(len(project.animals) * max_f)
         # print "correct pose: {:.2%}".format(c_coverage)
         # # print "single correct coverage: {:.2%} ({})".format(single_len/float(single_gt_len), single_len)
@@ -213,7 +213,6 @@ class Evaluator:
         # self.__gt.set_permutation(permutation_data)
 
         self.evaluate(single_trajectories, frame_limits_start=0, frame_limits_end=frame_limits_end)
-
 
     def evaluate(self, data, frame_limits_start=0, frame_limits_end=-1):
         """
@@ -246,8 +245,8 @@ class Evaluator:
 
         print "_____________________________"
         print "|--Clearmetrics statistics--|"
-        print ("| MOTA: \t\t{:."+str(float_precission)+"%}").format(self.__clearmetrics.get_mota())
-        print ("| MOTP: \t\t{:."+str(float_precission)+"}").format(self.__clearmetrics.get_motp())
+        print ("| MOTA: \t\t{:." + str(float_precission) + "%}").format(self.__clearmetrics.get_mota())
+        print ("| MOTP: \t\t{:." + str(float_precission) + "}").format(self.__clearmetrics.get_motp())
         print ("| #FN: \t\t\t{:}").format(self.__clearmetrics.get_fn_count())
         print ("| #FP: \t\t\t{:}").format(self.__clearmetrics.get_fp_count())
         print ("| #mismatches: \t{:}").format(mismatches)
@@ -305,7 +304,9 @@ class Evaluator:
                     m_i += 1
                     print "MISMATCH: #{:}, frame: {:}, id: {:}, gt_id: {:}".format(m_i, frame, id_, match_id_)
 
-def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, row_border=2, row_h=30, bg=[0, 0, 0], impath=None):
+
+def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, row_border=2, row_h=30, bg=[0, 0, 0],
+                  impath=None):
     from core.animal import colors_
     import cv2
 
@@ -315,7 +316,7 @@ def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, ro
         num_frames = min(len(matches[0]), len(matches[1]))
     num_objects = len(p.animals)
 
-    im = np.zeros((row_h*num_objects*num_trackers, col_w*num_frames, 3), dtype=np.uint8)
+    im = np.zeros((row_h * num_objects * num_trackers, col_w * num_frames, 3), dtype=np.uint8)
     im[:, :, :] = bg
 
     for frame in range(num_frames):
@@ -329,30 +330,30 @@ def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, ro
                 y = id_ * row_h * num_trackers + tr * row_h
                 if val is not None:
                     color = colors_[perms[tr][val]]
-                    im[y:y+row_h, frame*col_w:(frame+1)*col_w, :] = color
+                    im[y:y + row_h, frame * col_w:(frame + 1) * col_w, :] = color
 
     for id_ in range(num_objects):
         # for tr in range(num_trackers):
-            for i in range(num_objects):
-                if perms[0][i] == id_:
-                    # gt_color = colors_[perms[0][i]]
-                    gt_color = colors_[id_]
+        for i in range(num_objects):
+            if perms[0][i] == id_:
+                # gt_color = colors_[perms[0][i]]
+                gt_color = colors_[id_]
 
-            if num_trackers == 2:
-                y = id_ * row_h * num_trackers + row_h/2
-            else:
-                y = id_ * row_h * num_trackers
+        if num_trackers == 2:
+            y = id_ * row_h * num_trackers + row_h / 2
+        else:
+            y = id_ * row_h * num_trackers
 
-            yy = y + ((row_h - gt_h) / 2)
-            yy2 = yy + gt_h
-            # black margin
-            im[yy-gt_border:yy, :, :] = [0, 0, 0]
-            im[yy2:yy2+gt_border, :, :] = [0, 0, 0]
-            im[yy:yy2, :, :] = gt_color
+        yy = y + ((row_h - gt_h) / 2)
+        yy2 = yy + gt_h
+        # black margin
+        im[yy - gt_border:yy, :, :] = [0, 0, 0]
+        im[yy2:yy2 + gt_border, :, :] = [0, 0, 0]
+        im[yy:yy2, :, :] = gt_color
 
     for id_ in range(1, num_objects):
         y = id_ * row_h * num_trackers
-        im[y-row_border:y + row_border, :, :] = [0, 0, 0]
+        im[y - row_border:y + row_border, :, :] = [0, 0, 0]
 
     # cv2.putText(im, 'idTracker', (7, 42), cv2.FONT_HERSHEY_PLAIN, 2.0, (0, 0, 0), 2)
     # cv2.putText(im, 'FERDA', (7, 95), cv2.FONT_HERSHEY_PLAIN, 2.0, (0, 0, 0), 2)
@@ -367,11 +368,11 @@ def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, ro
     plt.imshow(im)
     ax = plt.gca()
 
-    h_ = num_trackers*row_h
+    h_ = num_trackers * row_h
     fsize = 6
-    ax.set_yticks((np.arange(num_objects)*h_) + h_/2 - 2)
+    ax.set_yticks((np.arange(num_objects) * h_) + h_ / 2 - 2)
     # starting from 1
-    ax.set_yticklabels(range(1, num_objects+1), fontsize=fsize)
+    ax.set_yticklabels(range(1, num_objects + 1), fontsize=fsize)
 
     xt = np.array(range(0, num_frames, 1000))
     ax.set_xticks(xt)
@@ -380,15 +381,16 @@ def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, ro
     # plt.ylabel('id', fontsize=fsize)
 
     if name is not None:
-        plt.title(name, fontsize=fsize+2)
+        plt.title(name, fontsize=fsize + 2)
 
     if impath is None:
-        impath = p.working_directory+'/temp/overall_comparison.png'
+        impath = p.working_directory + '/temp/overall_comparison.png'
 
     plt.savefig(impath, bbox_inches='tight', pad_inches=0, dpi=512)
     fig.tight_layout()
 
     plt.show()
+
 
 def eval_centroids(p, gt, match=None):
     from tqdm import tqdm
@@ -436,6 +438,7 @@ def eval_centroids(p, gt, match=None):
 
     return match, perm, f_c_coverage, f_m_coverage, single_len, mistakes_len
 
+
 def print_coverage(c_coverage, m_coverage, singles_len='undef', mistakes_len='undef'):
     print "correct pose: {:.2%} (#{} frames)".format(c_coverage, singles_len)
     print "wrong pose: {:.2%} (#{} frames)".format(m_coverage, mistakes_len)
@@ -481,28 +484,71 @@ def compare_trackers(p, idtracker_path=None, impath=None, name=None, skip_idtrac
 
     if draw:
         if not skip_idtracker:
-            draw_id_t_img(p, [match, match2], [perm, perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200], impath=impath)
+            draw_id_t_img(p, [match, match2], [perm, perm2], name=name, row_h=50, gt_h=10, gt_border=2,
+                          bg=[200, 200, 200], impath=impath)
         else:
             if gt_ferda_perm is not None:
                 perm2 = gt_ferda_perm
             draw_id_t_img(p, [match2], [perm2], name=name, row_h=50, gt_h=10, gt_border=2, bg=[200, 200, 200],
                           impath=impath)
 
-
     return (idtracker_c_coverage, idtracker_m_coverage, f_c_coverage, f_m_coverage)
 
-if __name__ == '__main__':
+def gt_find_permutation(project, gt, frame=None):
+    from core.graph.region_chunk import RegionChunk
+    # if get_separated_frame_callback:
+    #     frame = self.get_separated_frame_callback()
+
+    permutation_data = []
+    for t in project.chm.chunks_in_frame(frame):
+        if not t.is_single():
+            continue
+
+        id_ = list(t.P)[0]
+        y, x = RegionChunk(t, project.gm, project.rm).centroid_in_t(frame)
+        permutation_data.append((frame, id_, y, x))
+
+    gt.set_permutation_reversed(permutation_data)
+
+def evaluate_project(project_path, gt_path):
     from core.project.project import Project
+    from utils.gt.gt import GT
 
-    # p = Project()
-    # p.load('/Users/flipajs/Documents/wd/zebrafish')
-    #
+    project = Project()
+    project.load(project_path)
+
+    # TODO: remove in future when an update is not necessary...
+    project.chm.update_N_sets(project)
+
     gt = GT()
-    # gt.load(p.GT_file)
-    gt.load('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
+    gt.load(gt_path)
 
-    ev = Evaluator(None, gt)
-    # ev.evaluate_FERDA(p, frame_limits_end=4498)
-    # ev.evaluate_FERDA(p, frame_limits_end=14998)
-    ev.evaluate_idtracker('/Volumes/Seagate Expansion Drive/FERDA-data/idTracker-5Zebrafish/trajectories.mat')
-    # ev.evaluate_idtracker('/Users/flipajs/Dropbox/FERDA/idTracker_Cam1/trajectories_nogaps.mat')
+    gt.set_offset(y=project.video_crop_model['y1'],
+                  x=project.video_crop_model['x1'],
+                  frames=project.video_start_t
+                  )
+
+    # TODO: find best frame...
+    gt_find_permutation(project, gt, frame=0)
+
+    compare_trackers(project, skip_idtracker=True, gt_ferda_perm=gt.get_permutation_reversed(),
+                     gt=gt, draw=False)
+
+
+if __name__ == '__main__':
+    evaluate_project('/Users/flipajs/Documents/wd/FERDA/Cam1', '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
+
+    # from core.project.project import Project
+    #
+    # # p = Project()
+    # # p.load('/Users/flipajs/Documents/wd/zebrafish')
+    # #
+    # gt = GT()
+    # # gt.load(p.GT_file)
+    # gt.load('/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
+    #
+    # ev = Evaluator(None, gt)
+    # # ev.evaluate_FERDA(p, frame_limits_end=4498)
+    # # ev.evaluate_FERDA(p, frame_limits_end=14998)
+    # ev.evaluate_idtracker('/Volumes/Seagate Expansion Drive/FERDA-data/idTracker-5Zebrafish/trajectories.mat')
+    # # ev.evaluate_idtracker('/Users/flipajs/Dropbox/FERDA/idTracker_Cam1/trajectories_nogaps.mat')
