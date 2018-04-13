@@ -536,7 +536,7 @@ def evaluate_project(project_path, gt_path):
 
 
 if __name__ == '__main__':
-    evaluate_project('/Users/flipajs/Documents/wd/FERDA/Cam1', '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
+    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Cam1_clip_arena_fixed', '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
 
     # from core.project.project import Project
     #
