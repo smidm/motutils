@@ -501,7 +501,7 @@ def gt_find_permutation(project, gt, frame=None):
 
     permutation_data = []
     for t in project.chm.chunks_in_frame(frame):
-        if not t.is_single():
+        if not t.is_single() or len(t.P) == 0:
             continue
 
         id_ = list(t.P)[0]
@@ -536,7 +536,8 @@ def evaluate_project(project_path, gt_path):
 
 
 if __name__ == '__main__':
-    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Cam1_clip_arena_fixed', '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
+    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Cam1_clip_arena_fixed', '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
+    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Sowbug3-crop', '/Users/flipajs/Documents/dev/ferda/data/GT/Sowbug3.pkl')
 
     # from core.project.project import Project
     #
