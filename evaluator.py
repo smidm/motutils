@@ -539,7 +539,24 @@ def evaluate_project(project_path, gt_path):
                   )
 
     # TODO: find best frame...
-    gt_find_permutation(project, gt, frame=0)
+    # at least find biggest assigned complete set...
+    num_animals = len(project.animals)
+    best_cs_frame = None
+    best_cs_score = 0
+    for cs in project.chm.complete_set_gen(project):
+        cs = filter(lambda x: x.is_id_decided(), cs)
+        if len(cs) == num_animals:
+            cs_score = 0
+            frame = 0
+            for tracklet in cs:
+                cs_score += len(tracklet)
+                frame = max(frame, tracklet.start_frame(project.gm))
+
+            if cs_score > best_cs_score:
+                best_cs_score = cs_score
+                best_cs_frame = frame
+
+    gt_find_permutation(project, gt, frame=best_cs_frame)
 
     compare_trackers(project, skip_idtracker=True, gt_ferda_perm=gt.get_permutation_reversed(),
                      gt=gt, draw=False)
@@ -547,13 +564,13 @@ def evaluate_project(project_path, gt_path):
 
 if __name__ == '__main__':
     print("Ants1")
-    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper-interactions/Cam1_clip_arena_fixed', '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
+    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Cam1_clip_arena_fixed', '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
     print("Sowbug3")
-    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper-interactions/Sowbug3-crop', '/Users/flipajs/Documents/dev/ferda/data/GT/Sowbug3.pkl')
+    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Sowbug3-crop', '/Users/flipajs/Documents/dev/ferda/data/GT/Sowbug3.pkl')
     print("Ants3")
-    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper-interactions/Camera3-5min', '/Users/flipajs/Documents/dev/ferda/data/GT/Camera3.pkl')
+    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Camera3-5min', '/Users/flipajs/Documents/dev/ferda/data/GT/Camera3.pkl')
     print("Zebrafish")
-    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper-interactions/5Zebrafish_nocover_22min', '/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
+    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/5Zebrafish_nocover_22min', '/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
 
     # from core.project.project import Project
     #
