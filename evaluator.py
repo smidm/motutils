@@ -160,7 +160,11 @@ class Evaluator:
                 except:
                     pass
 
-                gt_val = gts[i]
+                try:
+                    gt_val = gts[i]
+                except:
+                    gt_val = None
+                    print gts
 
                 single_gt_len += 1
 
@@ -523,8 +527,14 @@ def evaluate_project(project_path, gt_path):
     gt = GT()
     gt.load(gt_path)
 
-    gt.set_offset(y=project.video_crop_model['y1'],
-                  x=project.video_crop_model['x1'],
+    # TODO: fix project creation...
+    try:
+        vcm = project.video_crop_model
+    except AttributeError:
+        vcm = {'y1': 0, 'x1': 0}
+
+    gt.set_offset(y=vcm['y1'],
+                  x=vcm['x1'],
                   frames=project.video_start_t
                   )
 
@@ -536,8 +546,14 @@ def evaluate_project(project_path, gt_path):
 
 
 if __name__ == '__main__':
-    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Cam1_clip_arena_fixed', '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
-    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Sowbug3-crop', '/Users/flipajs/Documents/dev/ferda/data/GT/Sowbug3.pkl')
+    print("Ants1")
+    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper-interactions/Cam1_clip_arena_fixed', '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
+    print("Sowbug3")
+    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper-interactions/Sowbug3-crop', '/Users/flipajs/Documents/dev/ferda/data/GT/Sowbug3.pkl')
+    print("Ants3")
+    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper-interactions/Camera3-5min', '/Users/flipajs/Documents/dev/ferda/data/GT/Camera3.pkl')
+    print("Zebrafish")
+    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper-interactions/5Zebrafish_nocover_22min', '/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
 
     # from core.project.project import Project
     #
