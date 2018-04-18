@@ -521,6 +521,9 @@ def evaluate_project(project_path, gt_path):
     project = Project()
     project.load(project_path)
 
+    # zebrafish... cardinality classifier fix....
+    project.chm[1].segmentation_class = 2
+
     # TODO: remove in future when an update is not necessary...
     project.chm.update_N_sets(project)
 
@@ -543,6 +546,7 @@ def evaluate_project(project_path, gt_path):
     num_animals = len(project.animals)
     best_cs_frame = None
     best_cs_score = 0
+
     for cs in project.chm.complete_set_gen(project):
         cs = filter(lambda x: x.is_id_decided(), cs)
         if len(cs) == num_animals:
@@ -561,16 +565,38 @@ def evaluate_project(project_path, gt_path):
     compare_trackers(project, skip_idtracker=True, gt_ferda_perm=gt.get_permutation_reversed(),
                      gt=gt, draw=False)
 
+    single_tracklets_unassigned_len = 0
+    single_tracklets_len = 0
+    multi_tracklets_len = 0
+    tracklets = []
+    for t in project.chm.tracklet_gen():
+        if t.is_multi():
+            multi_tracklets_len += len(t)
+            # print t
+
+        if t.is_single():
+            if t.is_id_decided():
+                single_tracklets_len += len(t)
+            else:
+                single_tracklets_unassigned_len += len(t)
+
+            # tracklets.append(t)
+
+    print("SINGLE-ID undecided len: {}".format(single_tracklets_unassigned_len))
+    print("SINGLE-ID decided len: {}".format(single_tracklets_len))
+    print("MULTI-ID undecided len: {}".format(multi_tracklets_len))
+    # print("tracklets: {}".format(tracklets))
+
 
 if __name__ == '__main__':
     print("Ants1")
     # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Cam1_clip_arena_fixed', '/Users/flipajs/Documents/dev/ferda/data/GT/Cam1_.pkl')
     print("Sowbug3")
-    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Sowbug3-crop', '/Users/flipajs/Documents/dev/ferda/data/GT/Sowbug3.pkl')
+    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper-interactions/Sowbug3-crop', '/Users/flipajs/Documents/dev/ferda/data/GT/Sowbug3.pkl')
     print("Ants3")
     # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/Camera3-5min', '/Users/flipajs/Documents/dev/ferda/data/GT/Camera3.pkl')
     print("Zebrafish")
-    # evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/5Zebrafish_nocover_22min', '/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
+    evaluate_project('/Users/flipajs/Documents/wd/FERDA/april-paper/5Zebrafish_nocover_22min', '/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl')
 
     # from core.project.project import Project
     #
