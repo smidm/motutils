@@ -397,27 +397,7 @@ def draw_id_t_img(p, matches, perms, name=None, col_w=1, gt_h=5, gt_border=1, ro
 
 
 def eval_centroids(p, gt, match=None):
-    from tqdm import tqdm
-    data = []
-    for frame in tqdm(range(p.gm.end_t)):
-        data.append(np.array([[np.nan, np.nan] for _ in range(len(p.animals))]))
-        for t in p.chm.chunks_in_frame(frame):
-            if len(t.P) == 1:
-                id_ = list(t.P)[0]
-
-                if id_ >= len(p.animals):
-                    import warnings
-                    warnings.warn("id_ > num animals t_id: {} id: {}".format(t.id(), id_))
-                    continue
-
-                c = p.rm[t.r_id_in_t(frame, p.gm)].centroid()
-
-                data[frame][id_][0] = c[0]
-                data[frame][id_][1] = c[1]
-
-        data[frame] = np.array(data[frame])
-
-    data = np.array(data)
+    data = p.get_results_trajectories()
 
     if match is None:
         # TODO: max_d is an important parameter. Document it and put it into GUI!
