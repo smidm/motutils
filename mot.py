@@ -12,8 +12,6 @@ import errno
 import numpy as np
 import sys
 
-assert sys.version_info >= (3, 5)
-
 
 def load_idtracker(filename):
     """
@@ -96,6 +94,12 @@ def get_matplotlib_color_cycle():
     return rgb_cycle
 
 
+def generate_colors(count):
+    import matplotlib.pylab as plt
+    cm = plt.get_cmap('gist_rainbow')
+    return np.array([cm(1.*i/count, bytes=True)[:3] for i in range(count)]).astype(float)
+
+
 def visualize_mot(video_file, out_video_file, df_mot):
     import cv2
     import tqdm
@@ -114,7 +118,8 @@ def visualize_mot(video_file, out_video_file, df_mot):
                              cap.get(cv2.CAP_PROP_FPS),  # int(math.ceil(cap.get(cv2.CAP_PROP_FPS))),
                              img_shape[:2][::-1])
 
-    rgb_cycle = get_matplotlib_color_cycle()
+    rgb_cycle = generate_colors(df_mot['id'].max())
+
     for frame in tqdm.tqdm(range(1, frame_count + 1)):  # 100)): #
         ret, img = cap.read()
         assert ret
@@ -176,6 +181,7 @@ if __name__ == '__main__':
         assert args.load_gt
         df_gt = load_mot(args.load_gt)
         print('Evaluating...')
+        assert sys.version_info >= (3, 5), 'motmetrics requires Python 3.5'
         summary = eval_mot(df_gt, df)
         import motmetrics as mm
         mh = mm.metrics.create()
