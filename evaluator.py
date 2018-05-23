@@ -484,7 +484,7 @@ def gt_find_permutation(project, gt, frame=None):
     #     frame = self.get_separated_frame_callback()
 
     permutation_data = []
-    for t in project.chm.chunks_in_frame(frame):
+    for t in project.chm.tracklets_in_frame(frame):
         if not t.is_single() or len(t.P) == 0:
             continue
 
