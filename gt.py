@@ -416,9 +416,6 @@ class GT:
         for frame in tqdm.tqdm(frames):
             match[frame] = [None for _ in range(len(project.animals))]
 
-            if frame >= 2122:
-                pass
-
             # add chunk ids
             if match_on == 'tracklets':
                 r_t = project.gm.regions_and_t_ids_in_t(frame)
