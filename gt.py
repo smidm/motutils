@@ -651,16 +651,34 @@ class GT:
         return single_region_ids, animal_ids
 
     def segmentation_class_from_idset(self, idset):
+        # def is_single(self):
+        #     return self.segmentation_class == 0
+        #
+        # def is_multi(self):
+        #     return self.segmentation_class == 1
+        #
+        # def is_noise(self):
+        #     return self.segmentation_class == 2
+        #
+        # def is_part(self):
+        #     return self.segmentation_class == 3
+        #
+        # def is_undefined(self):
+        #     return self.segmentation_class == -1
+
+        if len(idset) == 1 and idset[0] is not None:
+            return 0
+
         if len(idset) > 1:
             return 1
 
-        if len(idset) == 1 and idset[0] is None:
+        if len(idset) == 0:
             return 2
 
-        if len(idset) == 0:
+        if len(idset) == 1 and idset[0] is None:
             return 3
 
-        return 0
+        return -1
 
     def get_class_and_id(self, tracklet, project, verbose=0):
         if verbose:
@@ -670,7 +688,6 @@ class GT:
         t_class = self.segmentation_class_from_idset(id_set)
 
         return t_class, id_set
-
 
 if __name__ == '__main__':
     from core.project.project import Project
