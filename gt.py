@@ -4,6 +4,7 @@ import sys
 import warnings
 import numpy as np
 import tqdm
+from scipy.spatial.distance import cdist
 
 
 class GT:
@@ -388,7 +389,8 @@ class GT:
 
         print("DONE")
 
-    def match_on_data(self, project, frames=None, max_d=5, data_centroids=None, match_on='tracklets', permute=False):
+    def match_on_data(self, project, frames=None, max_d=5, data_centroids=None, match_on='tracklets', permute=False,
+                      progress=True):
         """
         Match ground truth on tracklets or regions.
 
@@ -400,8 +402,6 @@ class GT:
         :param permute:
         :return: match, match[frame][gt position id]: chunk or region id
         """
-        from scipy.spatial.distance import cdist
-        from utils.misc import print_progress
         from itertools import izip
 
         # num_frames = self.max_frame() - self.min_frame()
@@ -413,7 +413,7 @@ class GT:
         if frames is None:
             frames = range(self.min_frame(), self.max_frame())
 
-        for frame in tqdm.tqdm(frames):
+        for frame in tqdm.tqdm(frames, disable=not progress):
             match[frame] = [None for _ in range(len(project.animals))]
 
             # add chunk ids
@@ -688,6 +688,81 @@ class GT:
         t_class = self.segmentation_class_from_idset(id_set)
 
         return t_class, id_set
+
+    def get_cardinalities(self, project, frame):
+        """
+        Get cardinalities for regions in the frame according to GT.
+
+        :param project: core.project.Project instance
+        :param frame: frame number
+        :return: cardinalities, dict {region id: cardinality class, ...}, {42: 'single', ... }
+        """
+        match = self.match_on_data(project, [frame], match_on='regions', progress=False)
+        region_ids, counts = np.unique(match[frame], return_counts=True)
+        cardinalities = {}
+        for rid, count in zip(region_ids, counts):
+            if count == 1:
+                cardinalities[rid] = 'single'
+            elif count > 1:
+                cardinalities[rid] = 'multi'
+            elif count == 0:
+                cardinalities[rid] = 'noise'
+            else:
+                assert True
+        return cardinalities
+
+    def get_region_cardinality(self, project, region):
+        """
+        Get cardinality for a region according to GT.
+
+        The region has to be included in the project region manager.
+
+        :param project: core.project.project.Project instance
+        :param region: core.region.region.Region instance
+        :return: str, cardinality class, one of 'single', 'multi', 'noise'
+        """
+        assert region in self.project.rm
+        assert region == self.project.rm[region.id()]
+        cardinalities = self.get_cardinalities(project, region.frame())
+        return cardinalities[region.id()]
+
+    def get_cardinalities_without_project(self, regions, thresh_px):
+        """
+        Get cardinalities for regions independent on a project.
+
+        Requires complete set of regions for a frame!
+
+        :param regions: list of Region objects
+        :param thresh_px: maximum distance between region and ground truth for valid match
+        :return:
+        """
+        assert len(regions) > 0
+        frame = regions[0].frame()
+        for r in regions[1:]:
+            assert r.frame() == frame, 'all regions have to belong to a single frame'
+
+        inf = thresh_px * 2
+        regions_yx = np.array([r.centroid() for r in regions])
+        gt_yx = np.array(self.get_positions(frame))
+        dist_mat = cdist(gt_yx, regions_yx)
+        dist_mat[dist_mat > thresh_px] = inf
+        matched_region_idx = np.argmin(dist_mat, axis=1)
+        n_matches_for_regions = np.zeros(len(regions_yx), dtype=int)
+        for idx in matched_region_idx:
+            n_matches_for_regions[idx] += 1
+
+        cardinalities = []
+        for count in n_matches_for_regions:
+            if count == 1:
+                cardinalities.append('single')
+            elif count > 1:
+                cardinalities.append('multi')
+            elif count == 0:
+                cardinalities.append('noise')
+            else:
+                assert True
+        return cardinalities
+
 
 if __name__ == '__main__':
     from core.project.project import Project
