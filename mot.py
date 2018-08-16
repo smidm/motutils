@@ -212,8 +212,9 @@ def visualize_mot(video_file, out_video_file, df_mots, names, montage_max_wh=(19
         resized_clip = out_clip
 
     resized_clip.\
-        set_duration(1).\
-        write_videofile(out_video_file, threads=4)
+        write_videofile(out_video_file)  # , threads=4  
+
+    #         set_duration(1).\
 
 
 def eval_mot(df_gt, df_results, sqdistth=10000):
@@ -228,7 +229,6 @@ def eval_mot(df_gt, df_results, sqdistth=10000):
 
 
 if __name__ == '__main__':
-    import tqdm
     import argparse
 
     parser = argparse.ArgumentParser(description='Convert and visualize mot ground truth and results.')
