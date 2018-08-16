@@ -83,64 +83,137 @@ def load_mot(filename):
     return pd.read_csv(filename, names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'])
 
 
-def get_matplotlib_color_cycle():
-    import matplotlib
-    import matplotlib.pylab as plt
-    matplotlib.colors.colorConverter.to_rgb
+def visualize_mot(video_file, out_video_file, df_mots, names, montage_max_wh=(1920, 1200), overlaid=False):
+    from moviepy.video.tools.drawing import blit
+    from moviepy.video.io.VideoFileClip import VideoFileClip
+    from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip, clips_array
+    from moviepy.video.VideoClip import TextClip
+    from moviepy.video.fx.resize import resize
+    from itertools import count
+    import cv2  # TODO: remove dependency
 
-    rgb_cycle = []
-    for hex_color in plt.rcParams['axes.prop_cycle'].by_key()['color']:
-        rgb_cycle.append([x * 255 for x in matplotlib.colors.colorConverter.to_rgb(hex_color)])
-    return rgb_cycle
+    def get_matplotlib_color_cycle():
+        import matplotlib
+        import matplotlib.pylab as plt
+        matplotlib.colors.colorConverter.to_rgb
 
+        rgb_cycle = []
+        for hex_color in plt.rcParams['axes.prop_cycle'].by_key()['color']:
+            rgb_cycle.append([x * 255 for x in matplotlib.colors.colorConverter.to_rgb(hex_color)])
+        return rgb_cycle
 
-def generate_colors(count):
-    import matplotlib.pylab as plt
-    cm = plt.get_cmap('gist_rainbow')
-    return np.array([cm(1.*i/count, bytes=True)[:3] for i in range(count)]).astype(float)
+    def generate_colors(count):
+        import matplotlib.pylab as plt
+        cm = plt.get_cmap('gist_rainbow')
+        return np.array([cm(1. * i / count, bytes=True)[:3] for i in range(count)]).astype(float)
 
+    def generate_markers(n):
+        """
+        Generate circular bitmap markers with alpha masks.
+        """
+        from moviepy.video.tools.drawing import circle
+        colors = generate_colors(n)
+        radius = 10
+        blur = radius * 0.2
+        img_dim = radius * 2 + 1
+        img_size = (img_dim, img_dim)
+        pos = (radius, radius)
+        markers = []
+        for c in colors:
+            img = circle(img_size, pos, radius, c, blur=blur)
+            mask = circle(img_size, pos, radius, 1, blur=blur)
+            markers.append({'img': img, 'mask': mask})
+        return markers, pos
 
-def visualize_mot(video_file, out_video_file, df_mots, names):
-    import cv2
-    import tqdm
-    # import math
+    def process_image(img, df, name, markers, marker_pos, counter):
+        """
+        Draw single tracker data on a frame.
+        """
+        frame = next(counter)
+        for _, row in df[df.frame == frame].iterrows():
+            if not (np.isnan(row.x) or np.isnan(row.y)):
+                marker = markers[int(row.id - 1)]
+                img = blit(marker['img'], img, (int(row.x) - marker_pos[0], int(row.y) - marker_pos[1]),
+                     mask=marker['mask'])
+        cv2.putText(img, name, (img.shape[1] / 2, 60), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
+        return img
 
-    if names:
-        assert len(names) == len(df_mots)
-
-    cap = cv2.VideoCapture(video_file)
-    ret, img = cap.read()
-    if not ret:
-        raise IOError(errno.ENOENT, video_file + ' not found')
-    img_shape = img.shape
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    cap = cv2.VideoCapture(video_file)
-
-    writer = cv2.VideoWriter(out_video_file,
-                             cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),  # ('X', '2', '6', '4'), ('M', 'J', 'P', 'G')
-                             cap.get(cv2.CAP_PROP_FPS),  # int(math.ceil(cap.get(cv2.CAP_PROP_FPS))),
-                             img_shape[:2][::-1])
-
-    rgb_cycle = generate_colors(max([df['id'].max() for df in df_mots]))
-    markers = [cv2.MARKER_SQUARE, cv2.MARKER_CROSS, cv2.MARKER_DIAMOND, cv2.MARKER_TILTED_CROSS, cv2.MARKER_STAR,
-               cv2.MARKER_TRIANGLE_DOWN, cv2.MARKER_TRIANGLE_UP]
-    assert len(df_mots) <= len(markers)
-
-    for frame in tqdm.tqdm(range(1, frame_count + 1)):  # 100)): #
-        ret, img = cap.read()
-        assert ret
+    def process_image_overlaid(img, df_mots, names, markers, rgb_cycle, counter):
+        """
+        Draw multiple trackers data on a frame.
+        """
+        frame = next(counter)
         for i, df in enumerate(df_mots):
             for _, row in df[df.frame == frame].iterrows():
                 if not (np.isnan(row.x) or np.isnan(row.y)):
-                    cv2.drawMarker(img, (int(row.x), int(row.y)), rgb_cycle[int(row.id - 1)], markers[i], 10) # , -1)
+                    cv2.drawMarker(img, (int(row.x), int(row.y)), rgb_cycle[int(row.id - 1)], markers[i], 10)
         cv2.putText(img, str(frame), (30, 30), cv2.FONT_HERSHEY_PLAIN, 0.8, (255, 255, 255))
         # show legend
         if names:
             for i, (name, marker) in enumerate(zip(names, markers)):
-                cv2.drawMarker(img, (img_shape[1] - 150, 30 + 20 * i - 5), (255, 255, 255), marker, 10)
-                cv2.putText(img, name, (img_shape[1] - 140, 30 + 20 * i), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
-        writer.write(img)
-    writer.release()
+                cv2.drawMarker(img, (img.shape[1] - 150, 30 + 20 * i - 5), (255, 255, 255), marker, 10)
+                cv2.putText(img, name, (img.shape[1] - 140, 30 + 20 * i), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
+        return img
+
+    def limit_size(wh, max_wh):
+        """
+        Limit video clip size.
+
+        :param wh: actual width and height
+        :param max_wh: maximal width and height
+        :return: newsize suitable for moviepy.video.fx.all.resize
+        """
+        wh = np.array(wh, dtype=float)
+        size_ratio = wh / max_wh
+        if np.count_nonzero(size_ratio > 1) == 0:
+            newsize = None  # keep original size
+        else:
+            # rescale according to most exceeding dimension to fit into max_wh
+            newsize = 1. / size_ratio.max()
+            assert np.all(wh * newsize <= max_wh)
+        return newsize
+
+    def make_fun(df, name, markers, marker_pos=None, rgb_cycle=None, overlaid=False):
+        counter = count()
+        if overlaid:
+            return lambda x: process_image_overlaid(x, df, name, markers, rgb_cycle, counter)
+        else:
+            return lambda x: process_image(x, df, name, markers, marker_pos, counter)
+
+    MONTAGE_GRID_WH = [(0, 0), (1, 1), (2, 1), (3, 1), (2, 2), (5, 1), (3, 2)]  # montage grid sizes for 0-6 number of images
+    n_clips = len(df_mots)
+    clip = VideoFileClip(video_file)
+    n_colors = max([df['id'].max() for df in df_mots])
+    if not overlaid:
+        markers, marker_pos = generate_markers(n_colors)
+    else:
+        markers = [cv2.MARKER_SQUARE, cv2.MARKER_CROSS, cv2.MARKER_DIAMOND, cv2.MARKER_TILTED_CROSS, cv2.MARKER_STAR,
+                   cv2.MARKER_TRIANGLE_DOWN, cv2.MARKER_TRIANGLE_UP]
+        rgb_cycle = generate_colors(n_colors)
+
+    if names:
+        assert len(names) == len(df_mots)
+
+    if not overlaid:
+        clips = []
+        for df, name in zip(df_mots, names):
+            # text_clip = TextClip(name, size=(200, 100), color='white').set_position('center', 'top') , fontsize=100
+            video_clip = clip.fl_image(make_fun(df, name, markers, marker_pos=marker_pos, overlaid=overlaid))
+            clips.append(video_clip) # CompositeVideoClip([video_clip, text_clip], use_bgclip=True)) # , bg_color='red')) # , use_bgclip=True)) , size=clip.size
+
+        out_clip = clips_array(np.array(clips).reshape((MONTAGE_GRID_WH[n_clips][1], -1)))
+    else:
+        out_clip = clip.fl_image(make_fun(df_mots, names, markers, rgb_cycle=rgb_cycle, overlaid=overlaid))
+
+    newsize = limit_size(out_clip.size, montage_max_wh)
+    if newsize is not None:
+        resized_clip = out_clip.fx(resize, newsize)
+    else:
+        resized_clip = out_clip
+
+    resized_clip.\
+        set_duration(1).\
+        write_videofile(out_video_file, threads=4)
 
 
 def eval_mot(df_gt, df_results, sqdistth=10000):
