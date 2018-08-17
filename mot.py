@@ -83,7 +83,7 @@ def load_mot(filename):
     return pd.read_csv(filename, names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'])
 
 
-def visualize_mot(video_file, out_video_file, df_mots, names, montage_max_wh=(1920, 1200), overlaid=False):
+def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_wh=(1920, 1200), overlaid=False):
     from moviepy.video.tools.drawing import blit
     from moviepy.video.io.VideoFileClip import VideoFileClip
     from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip, clips_array
@@ -135,7 +135,8 @@ def visualize_mot(video_file, out_video_file, df_mots, names, montage_max_wh=(19
                 marker = markers[int(row.id - 1)]
                 img = blit(marker['img'], img, (int(row.x) - marker_pos[0], int(row.y) - marker_pos[1]),
                      mask=marker['mask'])
-        cv2.putText(img, name, (img.shape[1] / 2, 60), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
+        if name is not None:
+            cv2.putText(img, name, (img.shape[1] / 2, 60), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
         return img
 
     def process_image_overlaid(img, df_mots, names, markers, rgb_cycle, counter):
@@ -149,7 +150,7 @@ def visualize_mot(video_file, out_video_file, df_mots, names, montage_max_wh=(19
                     cv2.drawMarker(img, (int(row.x), int(row.y)), rgb_cycle[int(row.id - 1)], markers[i], 10)
         cv2.putText(img, str(frame), (30, 30), cv2.FONT_HERSHEY_PLAIN, 0.8, (255, 255, 255))
         # show legend
-        if names:
+        if names is not None:
             for i, (name, marker) in enumerate(zip(names, markers)):
                 cv2.drawMarker(img, (img.shape[1] - 150, 30 + 20 * i - 5), (255, 255, 255), marker, 10)
                 cv2.putText(img, name, (img.shape[1] - 140, 30 + 20 * i), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
@@ -191,12 +192,16 @@ def visualize_mot(video_file, out_video_file, df_mots, names, montage_max_wh=(19
                    cv2.MARKER_TRIANGLE_DOWN, cv2.MARKER_TRIANGLE_UP]
         rgb_cycle = generate_colors(n_colors)
 
-    if names:
+    if names is not None:
         assert len(names) == len(df_mots)
 
     if not overlaid:
         clips = []
-        for df, name in zip(df_mots, names):
+        for i, df in enumerate(df_mots):
+            if names is not None:
+                name = names[i]
+            else:
+                name = None
             # text_clip = TextClip(name, size=(200, 100), color='white').set_position('center', 'top') , fontsize=100
             video_clip = clip.fl_image(make_fun(df, name, markers, marker_pos=marker_pos, overlaid=overlaid))
             clips.append(video_clip) # CompositeVideoClip([video_clip, text_clip], use_bgclip=True)) # , bg_color='red')) # , use_bgclip=True)) , size=clip.size
