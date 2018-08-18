@@ -130,7 +130,7 @@ def visualize_mot(video_file, out_video_file, df_mots, names, montage_max_wh=(19
         Draw single tracker data on a frame.
         """
         frame = next(counter)
-        for _, row in df[df.frame == frame].iterrows():
+        for _, row in df[df.frame - 1 == frame].iterrows():
             if not (np.isnan(row.x) or np.isnan(row.y)):
                 marker = markers[int(row.id - 1)]
                 img = blit(marker['img'], img, (int(row.x) - marker_pos[0], int(row.y) - marker_pos[1]),
@@ -144,7 +144,7 @@ def visualize_mot(video_file, out_video_file, df_mots, names, montage_max_wh=(19
         """
         frame = next(counter)
         for i, df in enumerate(df_mots):
-            for _, row in df[df.frame == frame].iterrows():
+            for _, row in df[df.frame - 1 == frame].iterrows():
                 if not (np.isnan(row.x) or np.isnan(row.y)):
                     cv2.drawMarker(img, (int(row.x), int(row.y)), rgb_cycle[int(row.id - 1)], markers[i], 10)
         cv2.putText(img, str(frame), (30, 30), cv2.FONT_HERSHEY_PLAIN, 0.8, (255, 255, 255))
@@ -212,7 +212,7 @@ def visualize_mot(video_file, out_video_file, df_mots, names, montage_max_wh=(19
         resized_clip = out_clip
 
     resized_clip.\
-        write_videofile(out_video_file)  # , threads=4  
+        write_videofile(out_video_file)  # , threads=4
 
     #         set_duration(1).\
 
