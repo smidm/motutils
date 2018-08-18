@@ -11,6 +11,7 @@ import pandas as pd
 import errno
 import numpy as np
 import sys
+import warnings
 
 
 def load_idtracker(filename):
@@ -223,6 +224,10 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_w
 
 
 def eval_mot(df_gt, df_results, sqdistth=10000):
+    nan_mask = (df_results.x == -1) | (df_results.x == -1) | df_results.x.isna() | df_results.y.isna()
+    if len(df_results[nan_mask]) > 0:
+        warnings.warn('stripping nans from the evaluated trajectories')
+        df_results = df_results[~nan_mask]
     from motmetrics.utils import compare_to_groundtruth
     import motmetrics as mm
     columns_mapper = {'frame': 'FrameId', 'id': 'Id'}
@@ -230,7 +235,20 @@ def eval_mot(df_gt, df_results, sqdistth=10000):
                                  df_results.set_index(['frame', 'id']).rename(columns=columns_mapper),
                                  dist='euc', distfields=['x', 'y'], distth=sqdistth)
     mh = mm.metrics.create()
-    return mh.compute(acc, metrics=mm.metrics.motchallenge_metrics)
+    return mh.compute(acc), acc  # metrics=mm.metrics.motchallenge_metrics
+
+
+def eval_and_save(gt_file, mot_results_file, out_csv=None):
+    df_gt = load_mot(gt_file)
+    df_results = load_mot(mot_results_file)
+    print('Evaluating...')
+    assert sys.version_info >= (3, 5), 'motmetrics requires Python 3.5'
+    summary, acc = eval_mot(df_gt, df_results)
+    import motmetrics as mm
+    # mh = mm.metrics.create()
+    print(mm.io.render_summary(summary))  # , formatters=mh.formatters)) # , namemap=mm.io.motchallenge_metric_names))
+    if out_csv is not None:
+        summary.to_csv(out_csv, index=False)
 
 
 if __name__ == '__main__':
@@ -267,16 +285,8 @@ if __name__ == '__main__':
 
     if args.eval or args.write_eval:
         assert args.load_gt
-        assert len(dfs) == 1, 'only single input file can be specified for evaluation'
-        df_gt = load_mot(args.load_gt)
-        print('Evaluating...')
-        assert sys.version_info >= (3, 5), 'motmetrics requires Python 3.5'
-        summary = eval_mot(df_gt, dfs[0])
-        import motmetrics as mm
-        mh = mm.metrics.create()
-        print(mm.io.render_summary(summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names))
-        if args.write_eval:
-            summary.to_csv(args.write_eval, index=False)
+        assert len(args.load_mot) == 1, 'only single input file can be specified for evaluation'
+        eval_and_save(args.load_gt, args.load_mot[0], args.write_eval)
 
     if args.video_out:
         assert args.video_in
