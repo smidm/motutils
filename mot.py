@@ -244,9 +244,10 @@ def eval_and_save(gt_file, mot_results_file, out_csv=None):
     print('Evaluating...')
     assert sys.version_info >= (3, 5), 'motmetrics requires Python 3.5'
     summary, acc = eval_mot(df_gt, df_results)
+    summary['motp_px'] = np.sqrt(summary['motp'])  # convert from square pixels to pixels
     import motmetrics as mm
     # mh = mm.metrics.create()
-    print(mm.io.render_summary(summary))  # , formatters=mh.formatters)) # , namemap=mm.io.motchallenge_metric_names))
+    print(mm.io.render_summary(summary))
     if out_csv is not None:
         summary.to_csv(out_csv, index=False)
 
