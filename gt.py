@@ -503,7 +503,7 @@ class GT:
         ids = self.__get_ids_from_match(match[0], tracklet.id())
         return [self.__permutation[id_] for id_ in ids]
 
-    def tracklet_id_set(self, tracklet, project):
+    def tracklet_id_set(self, tracklet, project, progress=False):
         """
 
 
@@ -515,7 +515,7 @@ class GT:
 
         """
         match = self.match_on_data(project, range(tracklet.start_frame(project.gm),
-                                                  tracklet.end_frame(project.gm) + 1))
+                                                  tracklet.end_frame(project.gm) + 1), progress=progress)
 
         keys = sorted([k for k in match.iterkeys()])
         match = [match[k] for k in keys]
