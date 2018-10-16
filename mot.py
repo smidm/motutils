@@ -81,6 +81,12 @@ def save_mot(filename, df):
 
 
 def load_mot(filename):
+    """
+    Load Multiple Object Tacking Challenge trajectories file.
+
+    :param filename: mot filename
+    :return: DataFrame, columns frame and id start with 1 (MATLAB indexing)
+    """
     return pd.read_csv(filename, names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'])
 
 
@@ -130,14 +136,16 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_w
         """
         Draw single tracker data on a frame.
         """
+        img = img.copy()
         frame = next(counter)
-        for _, row in df[df.frame - 1 == frame].iterrows():
-            if not (np.isnan(row.x) or np.isnan(row.y)):
+        for _, row in df[df.frame - 1 == frame].iterrows():  # mot data in df are indexed from 1
+            if not (np.isnan(row.x) or np.isnan(row.y) or row.x == -1 or row.y == -1):
                 marker = markers[int(row.id - 1)]
                 img = blit(marker['img'], img, (int(row.x) - marker_pos[0], int(row.y) - marker_pos[1]),
                      mask=marker['mask'])
         if name is not None:
             cv2.putText(img, name, (img.shape[1] / 2, 60), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
+        cv2.putText(img, str(frame), (30, 30), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
         return img
 
     def process_image_overlaid(img, df_mots, names, markers, rgb_cycle, counter):
@@ -176,7 +184,7 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_w
         return newsize
 
     def make_fun(df, name, markers, marker_pos=None, rgb_cycle=None, overlaid=False):
-        counter = count()
+        counter = count(start=-1)  # this function is called 1 time before first (0th) frame
         if overlaid:
             return lambda x: process_image_overlaid(x, df, name, markers, rgb_cycle, counter)
         else:
@@ -224,6 +232,15 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_w
 
 
 def eval_mot(df_gt, df_results, sqdistth=10000):
+    """
+    Evaluate trajectories by comparing them to a ground truth.
+
+    :param df_gt: ground truth DataFrame, columns <frame>, <id>, <x>, <y>; <frame> and <id> are 1-based; see load_mot
+    :param df_results: result trajectories DataFrame, format same as df_gt
+    :param sqdistth: square of the distance threshold, only detections and ground truth objects closer than
+                     the threshold can be matched
+    :return: (summary DataFrame, MOTAccumulator)
+    """
     nan_mask = (df_results.x == -1) | (df_results.x == -1) | df_results.x.isna() | df_results.y.isna()
     if len(df_results[nan_mask]) > 0:
         warnings.warn('stripping nans from the evaluated trajectories')
@@ -239,6 +256,13 @@ def eval_mot(df_gt, df_results, sqdistth=10000):
 
 
 def eval_and_save(gt_file, mot_results_file, out_csv=None):
+    """
+    Evaluate results and save metrics.
+
+    :param gt_file: ground truth filename (MOT format)
+    :param mot_results_file: results filename (MOT format)
+    :param out_csv: output file with a summary
+    """
     df_gt = load_mot(gt_file)
     df_results = load_mot(mot_results_file)
     print('Evaluating...')
