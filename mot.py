@@ -322,10 +322,7 @@ def eval_mot(df_gt, df_results, sqdistth=10000):
         df_results = df_results[~nan_mask]
     from motmetrics.utils import compare_to_groundtruth
     import motmetrics as mm
-    columns_mapper = {'frame': 'FrameId', 'id': 'Id'}
-    acc = compare_to_groundtruth(df_gt.set_index(['frame', 'id']).rename(columns=columns_mapper),
-                                 df_results.set_index(['frame', 'id']).rename(columns=columns_mapper),
-                                 dist='euc', distfields=['x', 'y'], distth=sqdistth)
+    acc = compare_to_groundtruth(df_gt, df_results, dist='euc', distfields=['x', 'y'], distth=sqdistth)
     mh = mm.metrics.create()
     return mh.compute(acc), acc  # metrics=mm.metrics.motchallenge_metrics
 
