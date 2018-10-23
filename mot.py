@@ -12,6 +12,7 @@ import errno
 import numpy as np
 import sys
 import warnings
+import scipy.optimize
 
 
 def load_idtracker(filename):
@@ -42,13 +43,14 @@ def load_idtracker(filename):
             df[['frame', i, 'X' + str(i), 'Y' + str(i)]].rename({'X' + str(i): 'x', 'Y' + str(i): 'y', i: 'id'}, axis=1))
     df_out = pd.concat(objs)
     df_out.sort_values(['frame', 'id'], inplace=True)
+    df[df.isna()] = -1
     df_out['width'] = -1
     df_out['height'] = -1
     df_out['confidence'] = -1
     return df_out
 
 
-def load_toxtrack(filename, topleft_xy=(0, 0)):
+def load_toxtrac(filename, topleft_xy=(0, 0)):
     """
     Load ToxTrack results.
 
@@ -59,12 +61,15 @@ def load_toxtrack(filename, topleft_xy=(0, 0)):
     3	0	1	188.84	588.213	1
     4	0	1	186.78	592.463	1
 
-    :param filename: idTracker results (Tracking_0.txt)
+    Documentation of the file format is in
+    [ToxTrac: a fast and robust software for tracking organisms](https://arxiv.org/pdf/1706.02577.pdf) page 33.
+
+    :param filename: Toxtrac results (Tracking_0.txt)
     :param topleft_xy: tuple, length 2; xy coordinates of the arena top left corner
     :return: DataFrame with frame 	id 	x 	y 	width 	height 	confidence columns
     """
     df = pd.read_csv(filename, delim_whitespace=True,
-                     names=['frame', '_0', 'id', 'x', 'y', '_1'],
+                     names=['frame', 'arena', 'id', 'x', 'y', 'label'],
                      usecols=['frame', 'id', 'x', 'y'])
     df['frame'] += 1  # MATLAB indexing
     df['x'] += topleft_xy[0]
@@ -73,6 +78,7 @@ def load_toxtrack(filename, topleft_xy=(0, 0)):
     df = df.assign(height=-1)
     df = df.assign(confidence=-1)
     df.sort_values(['frame', 'id'], inplace=True)
+    df[df.isna()] = -1
     return df
 
 
@@ -87,10 +93,13 @@ def load_mot(filename):
     :param filename: mot filename
     :return: DataFrame, columns frame and id start with 1 (MATLAB indexing)
     """
-    return pd.read_csv(filename, names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'])
+    df = pd.read_csv(filename, names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'],
+                     index_col=[u'frame', u'id'])
+    return df[(df.x != -1) & (df.y != -1)]
 
 
-def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_wh=(1920, 1200), overlaid=False):
+def visualize_mot(video_file, out_video_file, df_mots, names=None,
+                  montage_max_wh=(1920, 1200), overlaid=False, duration=None):
     from moviepy.video.tools.drawing import blit
     from moviepy.video.io.VideoFileClip import VideoFileClip
     from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip, clips_array
@@ -120,43 +129,58 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_w
         """
         from moviepy.video.tools.drawing import circle
         colors = generate_colors(n)
+        random_colors = np.random.permutation(colors)
         radius = 10
         blur = radius * 0.2
         img_dim = radius * 2 + 1
         img_size = (img_dim, img_dim)
         pos = (radius, radius)
         markers = []
-        for c in colors:
+        for c in random_colors:
             img = circle(img_size, pos, radius, c, blur=blur)
             mask = circle(img_size, pos, radius, 1, blur=blur)
             markers.append({'img': img, 'mask': mask})
         return markers, pos
 
-    def process_image(img, df, name, markers, marker_pos, counter):
+    def process_image(img, df, name, markers, marker_pos, counter, id_to_gt=None):
         """
         Draw single tracker data on a frame.
+
+        :param img:
+        :param df:
+        :param name:
+        :param markers:
+        :param marker_pos:
+        :param counter:
+        :param id_to_gt: list or dict, maps df ids to ground truth ids, used to display same markers for all results
+        :return:
         """
+        if id_to_gt is None:
+            id_to_gt = range(len(markers))  # identity mapping
         img = img.copy()
         frame = next(counter)
-        for _, row in df[df.frame - 1 == frame].iterrows():  # mot data in df are indexed from 1
-            if not (np.isnan(row.x) or np.isnan(row.y) or row.x == -1 or row.y == -1):
-                marker = markers[int(row.id - 1)]
-                img = blit(marker['img'], img, (int(row.x) - marker_pos[0], int(row.y) - marker_pos[1]),
-                     mask=marker['mask'])
+        if frame + 1 in df.index.levels[0]:
+            for obj_id, row in df.loc[frame + 1].iterrows():  # mot data in df are indexed from 1
+                if not (np.isnan(row.x) or np.isnan(row.y) or row.x == -1 or row.y == -1):
+                    marker = markers[id_to_gt[obj_id]]
+                    img = blit(marker['img'], img, (int(row.x) - marker_pos[0], int(row.y) - marker_pos[1]),
+                         mask=marker['mask'])
         if name is not None:
             cv2.putText(img, name, (img.shape[1] / 2, 60), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
         cv2.putText(img, str(frame), (30, 30), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
         return img
 
-    def process_image_overlaid(img, df_mots, names, markers, rgb_cycle, counter):
+    def process_image_overlaid(img, df_mots, names, markers, rgb_cycle, counter, id_to_gt=None):
         """
         Draw multiple trackers data on a frame.
         """
+        if id_to_gt is None:
+            id_to_gt = range(len(markers))  # identity mapping
         frame = next(counter)
         for i, df in enumerate(df_mots):
             for _, row in df[df.frame - 1 == frame].iterrows():
                 if not (np.isnan(row.x) or np.isnan(row.y)):
-                    cv2.drawMarker(img, (int(row.x), int(row.y)), rgb_cycle[int(row.id - 1)], markers[i], 10)
+                    cv2.drawMarker(img, (int(row.x), int(row.y)), rgb_cycle[id_to_gt[int(row.id - 1)]], markers[i], 10)
         cv2.putText(img, str(frame), (30, 30), cv2.FONT_HERSHEY_PLAIN, 0.8, (255, 255, 255))
         # show legend
         if names is not None:
@@ -183,17 +207,59 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_w
             assert np.all(wh * newsize <= max_wh)
         return newsize
 
-    def make_fun(df, name, markers, marker_pos=None, rgb_cycle=None, overlaid=False):
+    def make_fun(df, name, markers, marker_pos=None, rgb_cycle=None, overlaid=False, id_to_gt=None):
         counter = count(start=-1)  # this function is called 1 time before first (0th) frame
         if overlaid:
-            return lambda x: process_image_overlaid(x, df, name, markers, rgb_cycle, counter)
+            return lambda x: process_image_overlaid(x, df, name, markers, rgb_cycle, counter, id_to_gt)
         else:
-            return lambda x: process_image(x, df, name, markers, marker_pos, counter)
+            return lambda x: process_image(x, df, name, markers, marker_pos, counter, id_to_gt)
+
+    def detections_to_array(df, frame=None):
+        """
+        Get xy detections as an array.
+
+        :param df: mot trajectories DataFrame
+        :param frame: if None use frame with most ids defined
+        :return: xy values, trajectory ids, frame number
+        """
+        if frame is None:
+            frame = df.groupby('frame').size().idxmax()
+        df_xy = df.loc[frame, ['x', 'y']]
+        return df_xy.values, df_xy.index, frame
+
+    def find_mapping(df, df_ref):
+        """
+        Find spatially close mapping to reference trajectory ids.
+
+        Ids that are not matched are mapped to itself.
+
+        :param df: trajectories
+        :param df_ref: reference trajectories
+        :return: dict, df ids to reference ids
+        """
+        # get positions in a suitable frame
+        positions, ids, frame = detections_to_array(df)
+        ref_positions, ref_ids, _ = detections_to_array(df_ref, frame=frame)
+        assert len(ref_ids) == len(df_ref.index.get_level_values(1).unique()), \
+            'all identities have to be defined in ground truth at the selected frame'
+        # match positions
+        distance_matrix = np.vectorize(lambda i, j: np.linalg.norm(positions[i] - ref_positions[j])) \
+            (*np.indices((len(ids), len(ref_ids))))
+        ii, jj = scipy.optimize.linear_sum_assignment(distance_matrix)
+        if np.count_nonzero(distance_matrix[ii, jj] > 10):
+            warnings.warn('large distance beween detection and gt ' + str(distance_matrix[ii, jj]))
+        id_to_gt = dict(zip(ids, jj))
+        # add identity mappings for ids not present in the selected frame
+        all_ids = df.index.get_level_values(1).unique()
+        if len(ids) < len(all_ids):
+            ids_without_gt_match = set(all_ids) - set(ids)
+            id_to_gt.update(zip(ids_without_gt_match, ids_without_gt_match))  # add identity mapping
+        return id_to_gt
 
     MONTAGE_GRID_WH = [(0, 0), (1, 1), (2, 1), (3, 1), (2, 2), (5, 1), (3, 2)]  # montage grid sizes for 0-6 number of images
     n_clips = len(df_mots)
     clip = VideoFileClip(video_file)
-    n_colors = max([df['id'].max() for df in df_mots])
+    n_colors = max([df.index.get_level_values('id').max() for df in df_mots])  # max number of identities
     if not overlaid:
         markers, marker_pos = generate_markers(n_colors)
     else:
@@ -203,6 +269,13 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_w
 
     if names is not None:
         assert len(names) == len(df_mots)
+        try:
+            reference_idx = names.index('gt')
+        except ValueError:
+            reference_idx = 0
+    else:
+        reference_idx = 0
+    mappings = [find_mapping(df, df_mots[reference_idx]) for df in df_mots]
 
     if not overlaid:
         clips = []
@@ -212,12 +285,14 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_w
             else:
                 name = None
             # text_clip = TextClip(name, size=(200, 100), color='white').set_position('center', 'top') , fontsize=100
-            video_clip = clip.fl_image(make_fun(df, name, markers, marker_pos=marker_pos, overlaid=overlaid))
-            clips.append(video_clip) # CompositeVideoClip([video_clip, text_clip], use_bgclip=True)) # , bg_color='red')) # , use_bgclip=True)) , size=clip.size
+            video_clip = clip.fl_image(make_fun(df, name, markers, marker_pos=marker_pos, overlaid=overlaid,
+                                                id_to_gt=mappings[i]))
+            clips.append(video_clip)  # CompositeVideoClip([video_clip, text_clip], use_bgclip=True)) # , bg_color='red')) # , use_bgclip=True)) , size=clip.size
 
         out_clip = clips_array(np.array(clips).reshape((MONTAGE_GRID_WH[n_clips][1], -1)))
     else:
-        out_clip = clip.fl_image(make_fun(df_mots, names, markers, rgb_cycle=rgb_cycle, overlaid=overlaid))
+        out_clip = clip.fl_image(make_fun(df_mots, names, markers, rgb_cycle=rgb_cycle, overlaid=overlaid,
+                                          id_to_gt=mappings))
 
     newsize = limit_size(out_clip.size, montage_max_wh)
     if newsize is not None:
@@ -225,10 +300,10 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None, montage_max_w
     else:
         resized_clip = out_clip
 
-    resized_clip.\
-        write_videofile(out_video_file)  # , threads=4
+    if duration is not None:
+        resized_clip = resized_clip.set_duration(duration)
 
-    #         set_duration(1).\
+    resized_clip.write_videofile(out_video_file)  # , threads=4
 
 
 def eval_mot(df_gt, df_results, sqdistth=10000):
@@ -296,7 +371,7 @@ if __name__ == '__main__':
     if args.load_tox:
         assert args.tox_topleft_xy, 'specify position of the arena top left corner using --tox-topleft-xy'
         assert len(args.tox_topleft_xy), 'need to pass exactly two values with --tox-topleft-xy'
-        dfs = [load_toxtrack(args.load_tox, topleft_xy=args.tox_topleft_xy)]
+        dfs = [load_toxtrac(args.load_tox, topleft_xy=args.tox_topleft_xy)]
     elif args.load_idtracker:
         dfs = [load_idtracker(args.load_idtracker)]
     elif args.load_mot:
