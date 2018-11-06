@@ -306,6 +306,19 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None,
     resized_clip.write_videofile(out_video_file)  # , threads=4
 
 
+def mot_in_roi(df, roi):
+    """
+    Limit MOT to a region of interest.
+
+    :param df: MOT trajectories, DataFrame
+    :param roi: utils.roi.ROI
+    :return: MOT trajectories, DataFrame
+    """
+    idx_in_roi = (df.x >= roi.x()) & (df.y >= roi.y()) & (df.x < roi.x() + roi.width()) & (
+                df.y < roi.y() + roi.height())
+    return df[idx_in_roi]
+
+
 def eval_mot(df_gt, df_results, sqdistth=10000):
     """
     Evaluate trajectories by comparing them to a ground truth.
@@ -388,3 +401,30 @@ if __name__ == '__main__':
     if args.video_out:
         assert args.video_in
         visualize_mot(args.video_in, args.video_out, dfs, args.input_names)
+
+
+def results_to_mot(results):
+    """
+    Create MOT challenge format DataFrame out of trajectories array.
+
+    :param results: ndarray, shape=(n_frames, n_animals, 2); coordinates are in yx order, nan when id not present
+    :return: DataFrame with frame, id, x, y, width, height and confidence columns
+    """
+    assert results.ndim == 3
+    assert results.shape[2] == 2
+    objs = []
+    for i in range(results.shape[1]):
+        df = pd.DataFrame(results[:, i, ::-1], columns=['x', 'y'])
+        df['frame'] = range(1, results.shape[0] + 1)
+        df = df[~(df.x.isna() | df.y.isna())]
+        df['id'] = i + 1
+        df = df[['frame', 'id', 'x', 'y']]
+        objs.append(df)
+
+    df = pd.concat(objs)
+
+    df.sort_values(['frame', 'id'], inplace=True)
+    df['width'] = -1
+    df['height'] = -1
+    df['confidence'] = -1
+    return df
