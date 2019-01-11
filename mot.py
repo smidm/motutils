@@ -337,7 +337,10 @@ def eval_mot(df_gt, df_results, sqdistth=10000):
     import motmetrics as mm
     acc = compare_to_groundtruth(df_gt, df_results, dist='euc', distfields=['x', 'y'], distth=sqdistth)
     mh = mm.metrics.create()
-    return mh.compute(acc), acc  # metrics=mm.metrics.motchallenge_metrics
+    # remove id_global_assignment metric, workaround for https://github.com/cheind/py-motmetrics/issues/19
+    metrics = mh.names[:]
+    metrics.remove('id_global_assignment')
+    return mh.compute(acc, metrics), acc  # metrics=mm.metrics.motchallenge_metrics
 
 
 def eval_and_save(gt_file, mot_results_file, out_csv=None):
