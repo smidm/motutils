@@ -99,7 +99,7 @@ def load_mot(filename):
 
 
 def visualize_mot(video_file, out_video_file, df_mots, names=None,
-                  montage_max_wh=(1920, 1200), overlaid=False, duration=None):
+                  montage_max_wh=(1920, 1200), duration=None):
     from moviepy.video.tools.drawing import blit
     from moviepy.video.io.VideoFileClip import VideoFileClip
     from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip, clips_array
@@ -108,41 +108,29 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None,
     from itertools import count
     import cv2  # TODO: remove dependency
 
-    def get_matplotlib_color_cycle():
-        import matplotlib
-        import matplotlib.pylab as plt
-        matplotlib.colors.colorConverter.to_rgb
-
-        rgb_cycle = []
-        for hex_color in plt.rcParams['axes.prop_cycle'].by_key()['color']:
-            rgb_cycle.append([x * 255 for x in matplotlib.colors.colorConverter.to_rgb(hex_color)])
-        return rgb_cycle
-
     def generate_colors(count):
         import matplotlib.pylab as plt
         cm = plt.get_cmap('gist_rainbow')
         return np.array([cm(1. * i / count, bytes=True)[:3] for i in range(count)]).astype(float)
 
-    def generate_markers(n):
+    def generate_markers(n, colors):
         """
         Generate circular bitmap markers with alpha masks.
         """
         from moviepy.video.tools.drawing import circle
-        colors = generate_colors(n)
-        random_colors = np.random.permutation(colors)
         radius = 10
         blur = radius * 0.2
         img_dim = radius * 2 + 1
         img_size = (img_dim, img_dim)
         pos = (radius, radius)
         markers = []
-        for c in random_colors:
+        for c in colors:  # random_colors:
             img = circle(img_size, pos, radius, c, blur=blur)
             mask = circle(img_size, pos, radius, 1, blur=blur)
             markers.append({'img': img, 'mask': mask})
         return markers, pos
 
-    def process_image(img, df, name, markers, marker_pos, counter, id_to_gt=None):
+    def process_image(get_frame_fun, t, df, name, markers, marker_pos, colors, id_to_gt, fps):
         """
         Draw single tracker data on a frame.
 
@@ -157,36 +145,25 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None,
         """
         if id_to_gt is None:
             id_to_gt = range(len(markers))  # identity mapping
-        img = img.copy()
-        frame = next(counter)
+        img = get_frame_fun(t).copy()
+        frame = int(round((t * fps)))
         if frame + 1 in df.index.levels[0]:
             for obj_id, row in df.loc[frame + 1].iterrows():  # mot data in df are indexed from 1
                 if not (np.isnan(row.x) or np.isnan(row.y) or row.x == -1 or row.y == -1):
-                    marker = markers[id_to_gt[obj_id]]
-                    img = blit(marker['img'], img, (int(row.x) - marker_pos[0], int(row.y) - marker_pos[1]),
-                         mask=marker['mask'])
+                    if not ('width' in row and 'height' in row) or np.isnan(row.width) or row.width == -1:
+                        marker = markers[id_to_gt[obj_id]]
+                        img = blit(marker['img'], img, (int(row.x) - marker_pos[0], int(row.y) - marker_pos[1]),
+                             mask=marker['mask'])
+                    else:
+                        cv2.arrowedLine(img, (int(row.x), int(row.y)), (int(row.x + row.width), int(row.y + row.height)),
+                                        colors[id_to_gt[obj_id]], thickness=2, line_type=cv2.LINE_AA, tipLength=0.2)
         if name is not None:
-            cv2.putText(img, name, (img.shape[1] / 2, 60), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
+            font_size = 1.5
+            font_thickness = 2
+            text_size, _ = cv2.getTextSize(name, cv2.FONT_HERSHEY_SIMPLEX, font_size, font_thickness)
+            cv2.putText(img, name, (int((img.shape[1] - text_size[0]) / 2), 60),
+                        cv2.FONT_HERSHEY_SIMPLEX, font_size, (255, 255, 255), font_thickness)
         cv2.putText(img, str(frame), (30, 30), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
-        return img
-
-    def process_image_overlaid(img, df_mots, names, markers, rgb_cycle, counter, id_to_gt=None):
-        """
-        Draw multiple trackers data on a frame.
-        """
-        if id_to_gt is None:
-            id_to_gt = range(len(markers))  # identity mapping
-        frame = next(counter)
-        for i, df in enumerate(df_mots):
-            for _, row in df[df.frame - 1 == frame].iterrows():
-                if not (np.isnan(row.x) or np.isnan(row.y)):
-                    cv2.drawMarker(img, (int(row.x), int(row.y)), rgb_cycle[id_to_gt[int(row.id - 1)]], markers[i], 10)
-        cv2.putText(img, str(frame), (30, 30), cv2.FONT_HERSHEY_PLAIN, 0.8, (255, 255, 255))
-        # show legend
-        if names is not None:
-            for i, (name, marker) in enumerate(zip(names, markers)):
-                cv2.drawMarker(img, (img.shape[1] - 150, 30 + 20 * i - 5), (255, 255, 255), marker, 10)
-                cv2.putText(img, name, (img.shape[1] - 140, 30 + 20 * i), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
         return img
 
     def limit_size(wh, max_wh):
@@ -207,12 +184,8 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None,
             assert np.all(wh * newsize <= max_wh)
         return newsize
 
-    def make_fun(df, name, markers, marker_pos=None, rgb_cycle=None, overlaid=False, id_to_gt=None):
-        counter = count(start=-1)  # this function is called 1 time before first (0th) frame
-        if overlaid:
-            return lambda x: process_image_overlaid(x, df, name, markers, rgb_cycle, counter, id_to_gt)
-        else:
-            return lambda x: process_image(x, df, name, markers, marker_pos, counter, id_to_gt)
+    def make_fun(df, name, markers, marker_pos=None, rgb_cycle=None, id_to_gt=None, fps=None):
+        return lambda gf, t: process_image(gf, t, df, name, markers, marker_pos, rgb_cycle, id_to_gt, fps)
 
     def detections_to_array(df, frame=None):
         """
@@ -260,50 +233,43 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None,
     n_clips = len(df_mots)
     clip = VideoFileClip(video_file)
     n_colors = max([df.index.get_level_values('id').max() for df in df_mots])  # max number of identities
-    if not overlaid:
-        markers, marker_pos = generate_markers(n_colors)
-    else:
-        markers = [cv2.MARKER_SQUARE, cv2.MARKER_CROSS, cv2.MARKER_DIAMOND, cv2.MARKER_TILTED_CROSS, cv2.MARKER_STAR,
-                   cv2.MARKER_TRIANGLE_DOWN, cv2.MARKER_TRIANGLE_UP]
-        rgb_cycle = generate_colors(n_colors)
+    rgb_cycle = generate_colors(n_colors)
+    markers, marker_pos = generate_markers(n_colors, rgb_cycle)
 
     if names is not None:
         assert len(names) == len(df_mots)
-        try:
+        if 'gt' in names:
             reference_idx = names.index('gt')
-        except ValueError:
+        elif 'ground truth' in names:
+            reference_idx = names.index('ground truth')
+        else:
             reference_idx = 0
     else:
         reference_idx = 0
     mappings = [find_mapping(df, df_mots[reference_idx]) for df in df_mots]
 
-    if not overlaid:
-        clips = []
-        for i, df in enumerate(df_mots):
-            if names is not None:
-                name = names[i]
-            else:
-                name = None
-            # text_clip = TextClip(name, size=(200, 100), color='white').set_position('center', 'top') , fontsize=100
-            video_clip = clip.fl_image(make_fun(df, name, markers, marker_pos=marker_pos, overlaid=overlaid,
-                                                id_to_gt=mappings[i]))
-            clips.append(video_clip)  # CompositeVideoClip([video_clip, text_clip], use_bgclip=True)) # , bg_color='red')) # , use_bgclip=True)) , size=clip.size
+    clips = []
+    for i, df in enumerate(df_mots):
+        if names is not None:
+            name = names[i]
+        else:
+            name = None
+        # text_clip = TextClip(name, size=(200, 100), color='white').set_position('center', 'top')  # , fontsize=100
+        video_clip = clip.fl(make_fun(df, name, markers, marker_pos=marker_pos, rgb_cycle=rgb_cycle,
+                                      id_to_gt=mappings[i], fps=clip.fps))
+        # clips.append(CompositeVideoClip([video_clip, text_clip], use_bgclip=True)) # , bg_color='red')) # , use_bgclip=True)) , size=clip.size
+        clips.append(video_clip)
 
-        out_clip = clips_array(np.array(clips).reshape((MONTAGE_GRID_WH[n_clips][1], -1)))
-    else:
-        out_clip = clip.fl_image(make_fun(df_mots, names, markers, rgb_cycle=rgb_cycle, overlaid=overlaid,
-                                          id_to_gt=mappings))
+    out_clip = clips_array(np.array(clips).reshape((MONTAGE_GRID_WH[n_clips][1], -1)))
 
     newsize = limit_size(out_clip.size, montage_max_wh)
     if newsize is not None:
-        resized_clip = out_clip.fx(resize, newsize)
-    else:
-        resized_clip = out_clip
+        out_clip = out_clip.fx(resize, newsize)
 
     if duration is not None:
-        resized_clip = resized_clip.set_duration(duration)
+        out_clip = out_clip.set_duration(duration)
 
-    resized_clip.write_videofile(out_video_file)  # , threads=4
+    out_clip.write_videofile(out_video_file)  # , threads=4
 
 
 def mot_in_roi(df, roi):
@@ -436,6 +402,6 @@ if __name__ == '__main__':
 
     if args.video_out:
         assert args.video_in
-        visualize_mot(args.video_in, args.video_out, dfs, args.input_names)
+        visualize_mot(args.video_in, args.video_out, dfs, args.input_names)  #, duration=3)
 
 
