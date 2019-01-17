@@ -103,7 +103,7 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None,
     from moviepy.video.tools.drawing import blit
     from moviepy.video.io.VideoFileClip import VideoFileClip
     from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip, clips_array
-    from moviepy.video.VideoClip import TextClip
+    from moviepy.video.VideoClip import ColorClip
     from moviepy.video.fx.resize import resize
     from itertools import count
     import cv2  # TODO: remove dependency
@@ -229,7 +229,7 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None,
             id_to_gt.update(zip(ids_without_gt_match, ids_without_gt_match))  # add identity mapping
         return id_to_gt
 
-    MONTAGE_GRID_WH = [(0, 0), (1, 1), (2, 1), (3, 1), (2, 2), (5, 1), (3, 2)]  # montage grid sizes for 0-6 number of images
+    MONTAGE_GRID_WH = [(0, 0), (1, 1), (2, 1), (3, 1), (2, 2), (3, 2), (3, 2)]  # montage grid sizes for 0-6 number of images
     n_clips = len(df_mots)
     clip = VideoFileClip(video_file)
     n_colors = max([df.index.get_level_values('id').max() for df in df_mots])  # max number of identities
@@ -260,6 +260,9 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None,
         # clips.append(CompositeVideoClip([video_clip, text_clip], use_bgclip=True)) # , bg_color='red')) # , use_bgclip=True)) , size=clip.size
         clips.append(video_clip)
 
+    n_montage_cells = MONTAGE_GRID_WH[n_clips][0] * MONTAGE_GRID_WH[n_clips][1]
+    for _ in range(n_montage_cells - n_clips):
+        clips.append(ColorClip(clips[-1].size, (0, 0, 0), duration=clips[-1].duration))
     out_clip = clips_array(np.array(clips).reshape((MONTAGE_GRID_WH[n_clips][1], -1)))
 
     newsize = limit_size(out_clip.size, montage_max_wh)
