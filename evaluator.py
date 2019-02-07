@@ -534,7 +534,7 @@ def evaluate_project(project_path, gt_path):
             frame = 0
             for tracklet in cs:
                 cs_score += len(tracklet)
-                frame = max(frame, tracklet.start_frame(project.gm))
+                frame = max(frame, tracklet.start_frame())
 
             if cs_score > best_cs_score:
                 best_cs_score = cs_score

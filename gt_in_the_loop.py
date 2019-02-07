@@ -19,7 +19,7 @@ def get_len_undecided(project, lp):
         if t.is_single():
             coverage += t.length()
 
-        end_f_ = t.end_frame(project.gm)
+        end_f_ = t.end_frame()
         max_ = max(max_, end_f_)
 
     return coverage
@@ -31,7 +31,7 @@ def get_coverage(project, undecided=False, lp=None):
         if test_one_id_in_tracklet(t, len(project.animals)):
             coverage += t.length()
 
-        end_f_ = t.end_frame(project.gm)
+        end_f_ = t.end_frame()
         max_ = max(max_, end_f_)
 
     return coverage / float(max_ * len(project.animals))

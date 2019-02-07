@@ -494,8 +494,8 @@ class GT:
         return match
 
     def tracklet_id_set_without_checks(self, tracklet, project):
-        match = self.match_on_data(project, range(tracklet.start_frame(project.gm),
-                                                  tracklet.end_frame(project.gm) + 1, 10))
+        match = self.match_on_data(project, range(tracklet.start_frame(),
+                                                  tracklet.end_frame() + 1, 10))
 
         keys = sorted([k for k in match.iterkeys()])
         match = [match[k] for k in keys]
@@ -514,8 +514,8 @@ class GT:
         Returns:
 
         """
-        match = self.match_on_data(project, range(tracklet.start_frame(project.gm),
-                                                  tracklet.end_frame(project.gm) + 1))
+        match = self.match_on_data(project, range(tracklet.start_frame(),
+                                                  tracklet.end_frame() + 1))
 
         keys = sorted([k for k in match.iterkeys()])
         match = [match[k] for k in keys]
@@ -569,13 +569,13 @@ class GT:
         if ids is None:
             return False
 
-        frame = tracklet.start_frame(project.gm) - 1
+        frame = tracklet.start_frame() - 1
         if frame > 0:
             match = [x for x in self.match_on_data(project, [frame]).itervalues()][0]
             if self.__match_mapping_possible(match, ids):
                 return False
 
-        frame = tracklet.end_frame(project.gm) + 1
+        frame = tracklet.end_frame() + 1
         if frame < self.__max_frame:
             match = [x for x in self.match_on_data(project, [frame]).itervalues()][0]
             if self.__match_mapping_possible(match, ids):
@@ -600,14 +600,14 @@ class GT:
         for t in p.chm.chunk_gen():
             single = False
 
-            match = [matches[frame] for frame in range(t.start_frame(p.gm), t.end_frame(p.gm) + 1)]
+            match = [matches[frame] for frame in range(t.start_frame(), t.end_frame() + 1)]
             # match = [x for x in self.match_on_data(p, frames=range(t.start_frame(p.gm), t.end_frame(p.gm) + 1)).itervalues()]
             if match[0].count(t.id()) == 1:
                 single = True
                 num_singles += 1
 
-                singles_splits.add(t.start_frame(p.gm))
-                singles_splits.add(t.end_frame(p.gm))
+                singles_splits.add(t.start_frame())
+                singles_splits.add(t.end_frame())
 
             if not self.test_tracklet_consistency(t, match):
                 not_consistent += 1
@@ -618,8 +618,8 @@ class GT:
 
                 if single:
                     num_max_len_singles += 1
-                    singles_splits.discard(t.start_frame(p.gm))
-                    singles_splits.discard(t.end_frame(p.gm))
+                    singles_splits.discard(t.start_frame())
+                    singles_splits.discard(t.end_frame())
 
         num_t = len(p.chm)
         print("#max_len singles: {}({:.2%}) all: {}({:.2%}), #not consitent: {}".format(num_max_len_singles,
