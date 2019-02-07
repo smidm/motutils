@@ -494,6 +494,7 @@ def gt_find_permutation(project, gt, frame=None):
 
     gt.set_permutation_reversed(permutation_data)
 
+
 def evaluate_project(project_path, gt_path):
     from core.project.project import Project
     from utils.gt.gt import GT
@@ -527,8 +528,8 @@ def evaluate_project(project_path, gt_path):
     best_cs_frame = None
     best_cs_score = 0
 
-    for cs in project.chm.complete_set_gen(project):
-        cs = filter(lambda x: x.is_id_decided(), cs)
+    for cs in project.chm.get_complete_sets(project):
+        cs = filter(lambda x: x.is_id_decided(), cs.tracklets)
         if len(cs) == num_animals:
             cs_score = 0
             frame = 0
