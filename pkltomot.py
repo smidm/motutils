@@ -12,7 +12,7 @@ def load_pkl(filename):
     from utils.gt.gt import GT
     gt = GT()
     gt.load(filename)
-    gt.set_offset()  # this sometimes fixes gt.get_positions()
+    gt.set_offset(x=0, y=0, frames=0)
     data = []
     for frame in range(gt.min_frame(), gt.max_frame()):
         try:

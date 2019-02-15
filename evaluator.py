@@ -517,10 +517,7 @@ def evaluate_project(project_path, gt_path):
     except AttributeError:
         vcm = {'y1': 0, 'x1': 0}
 
-    gt.set_offset(y=vcm['y1'],
-                  x=vcm['x1'],
-                  frames=project.video_start_t
-                  )
+    gt.set_project_offsets(project)
 
     # TODO: find best frame...
     # at least find biggest assigned complete set...

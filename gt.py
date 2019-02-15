@@ -9,6 +9,10 @@ from scipy.spatial.distance import cdist
 
 class GT:
     """
+    Ground truth handling.
+
+    When working with a FERDA project, set
+
     None means not defined
 
     self.__positions[frame][id] in format (y, x, type)
@@ -16,7 +20,7 @@ class GT:
     self.__rois[frame][id] in format (y1, x1, y2, x2, type), where (y1, x1) is top left corner, (y2, x2) is bottom right.
 
     type =  1 - clear, precise
-            2..N - impreciese, inside collision, number signifies the num of ants in collision, it is also segmentation dependent...
+            2..N - impreciese, inside interaction, number signifies the num of ants in interaction, it is also segmentation dependent...
 
     """
     def __init__(self, num_ids=0, num_frames=0, version=1.0, precision=None):
@@ -37,7 +41,7 @@ class GT:
 
         self.__init_permutations()
 
-        # gt offset relative to original video
+        # gt (__positions) offset relative to the original video
         """
         if working in roi y: 100, x: 200, and starting in frame 100
         __gt_x_offset = 100
@@ -46,12 +50,21 @@ class GT:
         self.__gt_y_offset = 0
         self.__gt_frames_offset = 0
 
-        # working offset, set by inspected project relative to original video
+        # working offset, set by inspected project relative to original video, see set_offset()
         self.__x_offset = 0
         self.__y_offset = 0
         self.__frames_offset = 0
 
         self.break_on_inconsistency = False
+
+    def get_roi(self):
+        """
+        Return GT rectangular bounds.
+
+        :return: xmin, xmax, ymin, ymax
+        """
+        yx = np.vstack([self.get_positions(frame) for frame in range(self.min_frame(), self.max_frame())])  # shape=(n, 2), [y, x]
+        return yx[:, 1].min(), yx[:, 1].max(), yx[:, 0].min(), yx[:, 0].max()
 
     def __init_permutations(self):
         self.__permutation = {}
@@ -132,24 +145,16 @@ class GT:
 
         pass
 
-    def set_gt_offset(self, x=0, y=0, frames=0):
-        self.__gt_x_offset = x
-        self.__gt_y_offset = y
-        self.__gt_frames_offset = frames
+    def set_project_offsets(self, project):
+        self.set_offset(
+            project.video_crop_model['x1'],
+            project.video_crop_model['y1'],
+            project.video_start_t)
 
     def set_offset(self, x=0, y=0, frames=0):
         """
-        There is possibility to set crop on video (e. g. when there is space without information, to speed up whole process).
-        To compenstate this, x, y, frame will be added to GT values
-        Args:
-            x: 
-            y: 
-            frames: 
-
-        Returns:
-
+        Set offset of an external project that will be applied to GT positions before operations with external values.
         """
-
         self.__x_offset = self.__gt_x_offset - x
         self.__y_offset = self.__gt_y_offset - y
         self.__frames_offset = self.__gt_frames_offset - frames
@@ -374,6 +379,10 @@ class GT:
         return self.__min_frame
 
     def max_frame(self):
+        """
+
+        :return: max frame number + 1
+        """
         return self.__max_frame
 
     def check_none_occurence(self):
@@ -418,9 +427,14 @@ class GT:
 
             # add chunk ids
             if match_on == 'tracklets':
-                r_t = project.gm.regions_and_t_ids_in_t(frame)
-                regions = [project.rm[x[0]] for x in r_t]
-                ch_ids = [x[1] for x in r_t]
+                regions = []
+                tracklet_ids = []
+                regions_tracklets = project.gm.regions_and_t_ids_in_t(frame)
+                for rid, t_id in regions_tracklets:
+                    r = project.rm[rid]
+                    if not r.is_origin_interaction():
+                        regions.append(r)
+                        tracklet_ids.append(t_id)
             else:
                 regions = project.gm.regions_in_t(frame)
 
@@ -457,7 +471,7 @@ class GT:
                 if m1[a_id] > max_d:
                     # try if inside region...
                     if match_on == 'tracklets':
-                        for r, t_id in izip(regions, ch_ids):
+                        for r, t_id in izip(regions, tracklet_ids):
                             if r.is_inside(pos[a_id], tolerance=max_d):
                                 match[frame][a_id] = t_id
                                 break
@@ -473,7 +487,7 @@ class GT:
                         not_matched.append(frame)
                 else:
                     if match_on == 'tracklets':
-                        match[frame][a_id] = ch_ids[id_]
+                        match[frame][a_id] = tracklet_ids[id_]
                     elif match_on == 'centroids':
                         match[frame][a_id] = id_
                     else:
@@ -515,7 +529,8 @@ class GT:
 
         """
         match = self.match_on_data(project, range(tracklet.start_frame(),
-                                                  tracklet.end_frame() + 1))
+                                                  tracklet.end_frame() + 1),
+                                   progress=False)
 
         keys = sorted([k for k in match.iterkeys()])
         match = [match[k] for k in keys]
@@ -524,10 +539,9 @@ class GT:
         if self.test_tracklet_consistency(tracklet, match, ids):
             return [self.__gt_id_to_real_permutation[id_] for id_ in ids]
         else:
-            warnings.warn('Tracklet id: {} is inconsistent'.format(tracklet.id()))
+            warnings.warn('Tracklet id: {} is inconsistent.'.format(tracklet.id()))
             print(match, ids)
-
-        return None
+            return None
 
     def __get_ids_from_match(self, match, t_id):
         return set([id_ for id_, x in enumerate(match) if x == t_id])
@@ -762,6 +776,16 @@ class GT:
             else:
                 assert True
         return cardinalities
+
+    def draw(self, frame_range=None, ids=None):
+        import matplotlib.pylab as plt
+        if frame_range is None:
+            frame_range = (self.min_frame(), self.max_frame() + 1)
+        if ids is None:
+            ids = range(self.get_num_ids())
+        yx = np.array([gt.get_positions(frame) for frame in range(*frame_range)])  # shape=(frames, ids, yx)
+        for i in ids:
+            plt.plot(yx[:, i, 1], yx[:, i, 0], label=i)
 
 
 if __name__ == '__main__':
