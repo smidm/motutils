@@ -5,25 +5,41 @@ import warnings
 import numpy as np
 import tqdm
 from scipy.spatial.distance import cdist
+import pandas as pd
 
 
 class GT:
     """
     Ground truth handling.
 
-    When working with a FERDA project, set
+    When working with a FERDA project, don't forget to set spatial and temporal offsets, see set_project_offsets().
 
-    None means not defined
-
-    self.__positions[frame][id] in format (y, x, type)
-
-    type =  1 - clear, precise
-            2..N - impreciese, inside interaction, number signifies the num of ants in interaction, it is also segmentation dependent...
-
+    None means not defined.
     """
-    def __init__(self, num_ids=0, num_frames=0, version=1.0, precision=None):
+    def __init__(self, num_ids=0, version=1.0, precision=None):
         self.__num_ids = num_ids
 
+        """
+        ground truth stored in 
+        pandas.DataFrame indexed by frame and id, frames 0-indexed:
+        
+                           x           y  width  height  confidence
+        frame id                                                   
+        0     1   211.479849  477.982368     -1      -1           1
+              2   142.146532  491.562640     -1      -1           1
+              3   257.125920  512.797496     -1      -1           1
+              4   231.636725  656.953100     -1      -1           1
+              5   261.582812  592.857813     -1      -1           1    
+        """
+        self.df = None
+        """
+        legacy ground truth storage:
+        __positions[frame][id] in format (y, x, type)
+    
+        type =  1 - clear, precise
+                2..N - impreciese, inside interaction, number signifies the num of ants in interaction, 
+                it is also segmentation dependent...        
+        """
         self.__positions = {}
 
         self.__precision = precision
@@ -51,6 +67,38 @@ class GT:
         self.__frames_offset = 0
 
         self.break_on_inconsistency = False
+
+    @classmethod
+    def from_mot(cls, filename):
+        """
+        Load Multiple Object Tacking Challenge trajectories file.
+
+        :param filename: mot filename
+        :return: DataFrame, columns frame and id start with 1 (MATLAB indexing)
+        """
+        df = pd.read_csv(filename, names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'],
+                         index_col=[u'frame'])
+        # return df[(df.x != -1) & (df.y != -1)]
+        df.index -= 1  # MATLAB to 0-based indexing
+        del df['confidence']
+        del df['width']
+        del df['height']
+        df['type'] = 1
+        df = df[['id', 'y', 'x', 'type']]
+        positions = {}
+        for frame, df_frame in df.groupby(level=0):
+            del df_frame['id']
+            positions[frame] = df_frame.values
+
+        gt = cls(df.id.nunique())
+        gt.__positions = positions
+        gt.__min_frame = df.index.min()
+        gt.__max_frame = df.index.max()
+
+        df = pd.read_csv(filename, names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'],
+                         index_col=[u'frame', u'id'], converters={u'frame': lambda x: int(x) - 1})
+        gt.df = df[(df.x != -1) & (df.y != -1)]
+        return gt
 
     def get_roi(self):
         """
@@ -764,6 +812,11 @@ class GT:
 
 
 if __name__ == '__main__':
+    gt = GT()
+    gt.load('data/GT/Cam1_clip.avi.pkl')
+
+    gt2 = GT.from_mot('data/GT/Cam1_clip.avi.txt')
+    sys.exit(0)
     from core.project.project import Project
     p = Project()
 
