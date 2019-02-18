@@ -17,8 +17,6 @@ class GT:
 
     self.__positions[frame][id] in format (y, x, type)
 
-    self.__rois[frame][id] in format (y1, x1, y2, x2, type), where (y1, x1) is top left corner, (y2, x2) is bottom right.
-
     type =  1 - clear, precise
             2..N - impreciese, inside interaction, number signifies the num of ants in interaction, it is also segmentation dependent...
 
@@ -27,8 +25,6 @@ class GT:
         self.__num_ids = num_ids
 
         self.__positions = {}
-        self.__rois = {}
-        self.__behavior = {}
 
         self.__precision = precision
         self.__gt_version = version
@@ -38,7 +34,6 @@ class GT:
 
         self.__permutation = {}
         self.__gt_id_to_real_permutation = {}
-
         self.__init_permutations()
 
         # gt (__positions) offset relative to the original video
@@ -193,18 +188,6 @@ class GT:
 
         return positions
 
-    def get_clear_rois(self, frame):
-        p = [None for _ in range(self.__num_ids)]
-        if frame in self.__rois:
-            for i, it in enumerate(self.__rois[frame]):
-                if it is not None:
-                    y1, x1, y2, x2, type_ = it
-                    if type_ == 1:
-                        p[self.__permutation[i]] = (y1 + self.__y_offset, x1 + self.__x_offset,
-                                                    y2 + self.__y_offset, x2 + self.__x_offset)
-
-        return p
-
     def get_position(self, frame, id_):
         id_ = self.__permutation[id_]
         return self.get_clear_positions(frame)[id_]
@@ -256,7 +239,6 @@ class GT:
 
         for frame in range(frame_limits_start, frame_limits_end):
             self.__positions[frame] = [None for i in range(self.__num_ids)]
-            self.__rois[frame] = [None for i in range(self.__num_ids)]
 
         for t in project.chm.chunk_gen():
             print_progress(i, l, prefix='Progress:', suffix='Complete', barLength=50)
@@ -271,11 +253,6 @@ class GT:
                 for r in rch.regions_gen():
                     frame = r.frame()
 
-                    roi = r.roi()
-
-                    y1, x1 = roi.top_left_corner()
-                    y2, x2 = roi.bottom_right_corner()
-
                     if frame_limits_start > frame:
                         continue
 
@@ -285,11 +262,9 @@ class GT:
                     if len(t.P) == 1:
                         id_ = list(t.P)[0]
                         self.__positions[frame][id_] = (r.centroid()[0], r.centroid()[1], 1)
-                        self.__rois[frame][id_] = (y1, x1, y2, x2, 1)
                     else:
                         for id_ in list(set(range(num_animals)) - t.N):
                             self.__positions[frame][id_] = (r.centroid()[0], r.centroid()[1], len(t.P))
-                            self.__rois[frame][id_] = (y1, x1, y2, x2, len(t.P))
 
         self.__init_permutations()
         print()
