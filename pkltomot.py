@@ -30,8 +30,13 @@ def load_pkl(filename):
 def pkltomot(filename_pkl, filename_mot):
     df = load_pkl(filename_pkl)
     df = df[df.type != 0]  # gt type == 0 records are removed
+    # # sowbug -> sowbug_cut
+    # df = df[df.frame >= 807]
+    # df.frame = df.frame - 806
     del df['type']
     df.to_csv(filename_mot, header=False, index=False)
+
+    # Sowbug_cut is Sowbug starting with frame 806
 
 
 if __name__ == '__main__':
