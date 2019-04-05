@@ -882,90 +882,105 @@ class GT(object):
         for i in ids:
             plt.plot(yx[:, i, 1], yx[:, i, 0], label=i)
 
+from core.region.bbox import BBox
+
+
+class GtDummyDetectorMixin(object):
+    def init_gt_dummy_detector(self, bb_size_px, fp_prob=0, fn_prob=0,
+                               true_detection_jitter_scale=None, false_detection_jitter_scale=None):
+        self.detector_bb_size_px = bb_size_px
+        self.detector_fp_prob = fp_prob  # probability of false positive detection per actual object in gt
+        self.detector_fn_prob = fn_prob
+        if true_detection_jitter_scale is None:
+            self.true_scale = bb_size_px / 8
+        else:
+            self.true_scale = true_detection_jitter_scale
+        if false_detection_jitter_scale is None:
+            self.false_scale = bb_size_px
+        else:
+            self.false_scale = false_detection_jitter_scale
+
+    def detect(self, frame_nr):
+        bboxes = []
+        bb_half_px = self.detector_bb_size_px / 2
+        gt_detections = self.df.loc[frame_nr]
+        for obj_id, det in gt_detections.iterrows():
+            if np.random.rand() > self.detector_fn_prob:
+                xy = [det.x, det.y] + np.random.normal(scale=self.true_scale, size=(2,))
+                bbox = BBox(*np.concatenate((xy - bb_half_px, xy + bb_half_px)), frame=frame_nr)
+                bbox.obj_id = obj_id
+                bboxes.append(bbox)
+            if np.random.rand() < self.detector_fp_prob:
+                xy = [det.x, det.y] + np.random.normal(scale=self.false_scale, size=(2,))
+                bbox = BBox(*np.concatenate((xy - bb_half_px, xy + bb_half_px)), frame=frame_nr)
+                bbox.obj_id = None
+                bboxes.append(bbox)
+        return bboxes
+
+
+class GtDummyReIdMixin(object):
+    def init_gt_dummy_reid(self, match_beta_param=5, no_match_beta_param=5):
+        self.reid_match_beta_param = match_beta_param
+        self.reid_no_match_beta_param = no_match_beta_param
+
+    def reid(self, bbox1, bbox2):
+        if hasattr(bbox1, 'obj_id') and bbox1.obj_id is not None:
+            match1 = bbox1.obj_id
+        else:
+            match1 = self.get_matching_obj_id(bbox1)
+        if hasattr(bbox2, 'obj_id') and bbox2.obj_id is not None:
+            match2 = bbox2.obj_id
+        else:
+            match2 = self.get_matching_obj_id(bbox2)
+        if match1 is None or match2 is None or match1 != match2:
+            # not matching
+            return np.random.beta(1, self.reid_no_match_beta_param)
+        else:
+            # match
+            return np.random.beta(self.reid_match_beta_param, 1)
+
 
 if __name__ == '__main__':
-    gt = GT()
-    gt.load('data/GT/Cam1_clip.avi.pkl')
+    class GtDetector(GtDummyDetectorMixin, GtDummyReIdMixin, GT):
+        pass
 
-    gt2 = GT.from_mot('data/GT/Cam1_clip.avi.txt')
-    sys.exit(0)
-    from core.project.project import Project
-    p = Project()
+    gt2 = GtDetector.from_mot('data/GT/' + gt_filename + 'txt')
+    gt2.bbox_size_px = 70
+    gt2.init_gt_dummy_detector(gt2.bbox_size_px, fp_prob=0.05, fn_prob=0.001, false_detection_jitter_scale=40)
+    gt2.init_gt_dummy_reid()
+    # print(((gt.df[['x', 'y']] - gt2.df[['x', 'y']]) > 0.1).any(axis=1).nonzero())
+    # print(gt.df.type.value_counts(dropna=False))
+    detections = []
+    for frame in tqdm.tqdm(xrange(gt2.min_frame(), gt2.max_frame() + 1)):
+        detections.append(gt2.detect(frame))
 
-    name = 'Camera3'
-    # name = 'Sowbug3'
-    name = 'Cam1'
-    # name = 'zebrafish'
-    nogaps = ''
-    # nogaps = '_nogaps'
-    playground = ''
-    playground = '_playground'
-
-    # wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_playground'
-    # wd = '/Users/flipajs/Documents/wd/FERDA/Zebrafish_playground'
-    wd = '/Users/flipajs/Documents/wd/FERDA/'+name+playground
-    wd = '/Users/flipajs/Documents/wd/FERDA/Cam1_rf'
-    # wd = '/Users/flipajs/Documents/wd/FERDA/Sowbug3'
-
-    p.load_semistate(wd, 'id_classified')
-
-    p.chm.add_single_vertices_chunks(p)
-    p.gm.update_nodes_in_t_refs()
-
-    # p.GT_file = '/Users/flipajs/Documents/dev/ferda/data/GT/5Zebrafish_nocover_22min.pkl'
-    # p.save()
-
-    gt = GT()
-    gt.load(p.GT_file)
-
-    path = '/Users/flipajs/Documents/wd/idTracker/'+name+'/trajectories'+nogaps+'.mat'
-    from evaluator import compare_trackers
-
-    results = compare_trackers(p, path, impath='/Users/flipajs/Documents/dev/ferda/thesis/results/overall_'+name+nogaps+'_rf.png')
-
-    # gt.project_stats(p)
-
-    if False:
-        epsilons = []
-        edges = []
-        variant = []
-        AA = []
-        BB = []
-
-        theta = 0.5
-
-        out_t = 0
-        test_t = 0
-
-
-        import time
-
-        for v in p.gm.active_v_gen():
-            t = time.time()
-            e, es = p.gm.get_2_best_out_edges_appearance_motion_mix(v)
-            out_t += time.time() - t
-
-            if e[1] is not None:
-                A = es[0]
-                B = es[1]
-                t = time.time()
-                if gt.test_edge(p.gm.get_chunk(e[0].source()), p.gm.get_chunk(e[0].target()), p):
-                    eps = (A / theta) - (A + B)
-                    variant.append(0)
+    pickle.dump(detections, open('detections.pkl', 'w'))
+    import pickle
+    dmax = 100
+    from collections import defaultdict
+    X = defaultdict(list)
+    y = defaultdict(list)
+    from itertools import product
+    for frame1 in tqdm.tqdm(xrange(gt2.min_frame(), gt2.max_frame() + 1)):
+        for frame2 in range(frame1, min(frame1 + dmax, gt2.max_frame())):
+            delta = frame2 - frame1
+            for bb1, bb2 in product(detections[frame1], detections[frame2]):
+                # spatial = ...
+                if bb1.obj_id is None or bb2.obj_id is None or bb1.obj_id != bb2.obj_id:
+                    y[delta].append(0)
                 else:
-                    eps = (A + B) / ((1/theta) - 1)
-                    variant.append(1)
+                    y[delta].append(1)
+                X[delta].append([bb1 - bb2, gt2.reid(bb1, bb2)])
+    pickle.dump({'X': X, 'y': y}, open('pairwise_features.pkl', 'w'))
 
-                test_t += time.time() - t
-
-                AA.append(A)
-                BB.append(B)
-                epsilons.append(eps)
-                edges.append((int(e[0].source()), int(e[0].target())))
-
-        print(min(epsilons), max(epsilons))
-
-        print("T: ", out_t, test_t)
-
-        with open(p.working_directory+'/temp/epsilons.pkl', 'wb') as f:
-            pickle.dump((epsilons, edges, variant, AA, BB), f)
+#     import cv2
+#     from core.project.project import Project
+#     p = Project.from_dir('/home/matej/prace/ferda/projects/2_temp/190131_1415_Cam1_ILP_cardinality_dense_fixed_orientation_json/')
+#     from utils.video_manager import get_auto_video_manager
+#     # vm = get_auto_video_manager(p)
+#     for frame in tqdm.tqdm(range(100)):
+#         img = p.img_manager.get_whole_img(frame)
+#         for bbox in gt2.detect(frame):
+#             bbox.move(-np.array([p.video_crop_model['x1'], p.video_crop_model['y1']])).draw_to_image(img)
+#         cv2.imwrite('out/gtdetector/{:03d}.png'.format(frame), img)
+#
