@@ -15,6 +15,8 @@ class GT(object):
     When working with a FERDA project, don't forget to set spatial and temporal offsets, see set_project_offsets().
 
     None means not defined.
+
+    TODO: remove legacy pkl, __positions code
     """
     def __init__(self, num_ids=0, version=1.0, precision=None):
         self.__num_ids = num_ids
