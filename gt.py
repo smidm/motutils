@@ -977,7 +977,7 @@ if __name__ == '__main__':
 
 #     import cv2
 #     from core.project.project import Project
-#     p = Project.from_dir('/home/matej/prace/ferda/projects/2_temp/190131_1415_Cam1_ILP_cardinality_dense_fixed_orientation_json/')
+#     p = Project('/home/matej/prace/ferda/projects/2_temp/190131_1415_Cam1_ILP_cardinality_dense_fixed_orientation_json/')
 #     from utils.video_manager import get_auto_video_manager
 #     # vm = get_auto_video_manager(p)
 #     for frame in tqdm.tqdm(range(100)):
