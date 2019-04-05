@@ -8,7 +8,7 @@ from scipy.spatial.distance import cdist
 import pandas as pd
 
 
-class GT:
+class GT(object):
     """
     Ground truth handling.
 
@@ -20,25 +20,25 @@ class GT:
         self.__num_ids = num_ids
 
         """
-        ground truth stored in 
+        ground truth stored in
         pandas.DataFrame indexed by frame and id, frames 0-indexed:
-        
+
                            x           y  width  height  confidence
-        frame id                                                   
+        frame id
         0     1   211.479849  477.982368     -1      -1           1
               2   142.146532  491.562640     -1      -1           1
               3   257.125920  512.797496     -1      -1           1
               4   231.636725  656.953100     -1      -1           1
-              5   261.582812  592.857813     -1      -1           1    
+              5   261.582812  592.857813     -1      -1           1
         """
         self.df = None
         """
         legacy ground truth storage:
         __positions[frame][id] in format (y, x, type)
-    
+
         type =  1 - clear, precise
-                2..N - impreciese, inside interaction, number signifies the num of ants in interaction, 
-                it is also segmentation dependent...        
+                2..N - impreciese, inside interaction, number signifies the num of ants in interaction,
+                it is also segmentation dependent...
         """
         self.__positions = {}
 
@@ -68,10 +68,15 @@ class GT:
 
         self.break_on_inconsistency = False
 
+        self.bbox_size_px = None
+        self.bbox_match_minimal_iou = 0.5
+
     @classmethod
     def from_mot(cls, filename):
         """
         Load Multiple Object Tacking Challenge trajectories file.
+
+        Format described in https://arxiv.org/abs/1603.00831, section 3.3 Data Format
 
         :param filename: mot filename
         :return: DataFrame, columns frame and id start with 1 (MATLAB indexing)
@@ -83,8 +88,7 @@ class GT:
         del df['confidence']
         del df['width']
         del df['height']
-        df['type'] = 1
-        df = df[['id', 'y', 'x', 'type']]
+        df = df[['id', 'y', 'x']]
         positions = {}
         for frame, df_frame in df.groupby(level=0):
             del df_frame['id']
@@ -173,12 +177,27 @@ class GT:
         with open(path, 'rb') as f:
             tmp_dict = pickle.load(f)
 
-        self.__dict__.update(tmp_dict)
+        if '_GT__positions' not in tmp_dict:
+            self.__positions = tmp_dict
+            self.__num_ids = len(tmp_dict[tmp_dict.keys()[0]])
+            self.__min_frame = min(tmp_dict.keys())
+            self.__max_frame = max(tmp_dict.keys())
+        else:
+            self.__dict__.update(tmp_dict)
         self.__init_permutations()
 
+        # init df
+        all_positions = [row if row is not None else (None, None, None) for frame in self.__positions.itervalues() for
+                         row in frame]
+        index = pd.MultiIndex.from_product([np.array(self.__positions.keys()) + self.__gt_frames_offset,
+                                            range(1, self.__num_ids + 1)], names=['frame', 'id'])
+        # import ipdb; ipdb.set_trace()
+        df = pd.DataFrame(all_positions, columns=['y', 'x', 'type'], index=index)
+        df.x += self.__gt_x_offset
+        df.y += self.__gt_y_offset
+        self.df = df[['x', 'y', 'type']]
+
         print("GT was sucessfully loaded from " + path)
-        # except:
-        #     print "GT was not loaded ", path
 
     def get_all_ids_around(self, frame, position, max_distance=-1):
         if max_distance < 0:
@@ -190,8 +209,8 @@ class GT:
 
     def set_project_offsets(self, project):
         self.set_offset(
-            project.video_crop_model['x1'],
-            project.video_crop_model['y1'],
+            project.video_crop_model['x1'] if project.video_crop_model is not None else 0,
+            project.video_crop_model['y1'] if project.video_crop_model is not None else 0,
             project.video_start_t)
 
     def set_offset(self, x=0, y=0, frames=0):
@@ -219,15 +238,52 @@ class GT:
         return p
 
     def get_positions(self, frame):
+        return [pos[:2] for pos in self.get_position_and_type(frame)]
+
+    def get_positions_and_types(self, frame):
         frame -= self.__frames_offset
         p = [None for _ in range(self.__num_ids)]
         if frame in self.__positions:
             for i, it in enumerate(self.__positions[frame]):
                 if it is not None:
-                    y, x, _ = it
-                    p[self.__permutation[i]] = (y + self.__y_offset, x + self.__x_offset)
+                    if len(it) == 3:
+                        y, x, gt_type = it
+                    else:
+                        y, x = it
+                        gt_type = 1
+                    p[self.__permutation[i]] = (y + self.__y_offset, x + self.__x_offset, gt_type)
 
         return p
+
+    def get_bboxes(self, frame):
+        assert 'bbox_size_px' in dir(self) and self.bbox_size_px is not None
+        bboxes = []
+        for obj_id, obj in self.df.loc[frame].iterrows():
+            if obj.width == -1 or obj.height == -1:
+                width = self.bbox_size_px
+                height = self.bbox_size_px
+            else:
+                width = obj.width
+                height = obj.height
+            bbox = BBox.from_xycenter_hw(obj.x, obj.y, width, height, frame)
+            bbox.obj_id = obj_id
+            bboxes.append(bbox)
+        return bboxes
+
+    def match_bbox(self, query_bbox):
+        bboxes = self.get_bboxes(query_bbox.frame)
+        ious = np.array([bbox.iou(query_bbox) for bbox in bboxes])
+        if ious.max() < self.bbox_match_minimal_iou:
+            return None  # fp
+        else:
+            return bboxes[ious.argmax()]
+
+    def get_matching_obj_id(self, query_bbox):
+        matching_bbox = self.match_bbox(query_bbox)
+        if matching_bbox is not None:
+            return matching_bbox.obj_id
+        else:
+            return None
 
     def get_clear_positions_dict(self):
         positions = {}
@@ -799,6 +855,22 @@ class GT:
             else:
                 assert True
         return cardinalities
+
+    def _get_index(self):
+        return pd.MultiIndex.from_product([range(min(self.df.index.levels[0]), max(self.df.index.levels[0]) + 1),
+                                           range(1, self.__num_ids + 1)], names=['frame', 'id'])
+
+    def fill_missing_positions_with_nans(self):
+        self.df = self.df.reindex(index=self._get_index, fill_value=np.nan)
+        return self.df
+
+    def get_missing_positions(self):
+        """
+        Return frame and id pairs that are not defined in the ground truth.
+
+        :return: DataFrame with frame and id columns
+        """
+        return self._get_index().to_frame()[self.x.isna()].reset_index(drop=True)
 
     def draw(self, frame_range=None, ids=None):
         import matplotlib.pylab as plt

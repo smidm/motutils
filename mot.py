@@ -6,6 +6,8 @@ Multi object tracking results and ground truth
 - visualization.
 
 For more help run this file as a script with --help parameter.
+
+TODO: merge with utils.gt.gt
 """
 import pandas as pd
 import errno
@@ -147,7 +149,7 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None,
             id_to_gt = range(len(markers))  # identity mapping
         img = get_frame_fun(t).copy()
         frame = int(round((t * fps)))
-        if frame + 1 in df.index.levels[0]:
+        if frame + 1 in df.index:
             for obj_id, row in df.loc[frame + 1].iterrows():  # mot data in df are indexed from 1
                 if not (np.isnan(row.x) or np.isnan(row.y) or row.x == -1 or row.y == -1):
                     if not ('width' in row and 'height' in row) or np.isnan(row.width) or row.width == -1:
@@ -157,6 +159,7 @@ def visualize_mot(video_file, out_video_file, df_mots, names=None,
                     else:
                         cv2.arrowedLine(img, (int(row.x), int(row.y)), (int(row.x + row.width), int(row.y + row.height)),
                                         colors[id_to_gt[obj_id]], thickness=2, line_type=cv2.LINE_AA, tipLength=0.2)
+                    # cv2.putText(img, str(row.type), (int(row.x), int(row.y) - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255)) # , font_thickness)
         if name is not None:
             font_size = 1.5
             font_thickness = 2
@@ -405,6 +408,4 @@ if __name__ == '__main__':
 
     if args.video_out:
         assert args.video_in
-        visualize_mot(args.video_in, args.video_out, dfs, args.input_names)  #, duration=3)
-
-
+        visualize_mot(args.video_in, args.video_out, dfs, args.input_names)  # , duration=3)
