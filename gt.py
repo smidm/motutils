@@ -16,11 +16,8 @@ class GT(object):
 
     None means not defined.
 
-    TODO: remove legacy pkl, __positions code
     """
-    def __init__(self, num_ids=0, version=1.0, precision=None):
-        self.__num_ids = num_ids
-
+    def __init__(self, filename=None):
         """
         ground truth stored in
         pandas.DataFrame indexed by frame and id, frames 0-indexed:
@@ -33,231 +30,113 @@ class GT(object):
               4   231.636725  656.953100     -1      -1           1
               5   261.582812  592.857813     -1      -1           1
         """
+        self.num_ids = 0
         self.df = None
-        """
-        legacy ground truth storage:
-        __positions[frame][id] in format (y, x, type)
-
-        type =  1 - clear, precise
-                2..N - impreciese, inside interaction, number signifies the num of ants in interaction,
-                it is also segmentation dependent...
-        """
-        self.__positions = {}
-
-        self.__precision = precision
-        self.__gt_version = version
-
-        self.__min_frame = 0
-        self.__max_frame = sys.maxsize
-
-        self.__permutation = {}
-        self.__gt_id_to_real_permutation = {}
-        self.__init_permutations()
-
-        # gt (__positions) offset relative to the original video
-        """
-        if working in roi y: 100, x: 200, and starting in frame 100
-        __gt_x_offset = 100
-        """
-        self.__gt_x_offset = 0
-        self.__gt_y_offset = 0
-        self.__gt_frames_offset = 0
-
-        # working offset, set by inspected project relative to original video, see set_offset()
-        self.__x_offset = 0
-        self.__y_offset = 0
-        self.__frames_offset = 0
-
-        self.break_on_inconsistency = False
 
         self.bbox_size_px = None
         self.bbox_match_minimal_iou = 0.5
 
-    @classmethod
-    def from_mot(cls, filename):
+        if filename is not None:
+            self.load(filename)
+
+        super(GT, self).__init__()  # this calls potential mixin classes init methods
+                                    # see https://stackoverflow.com/a/6099026/322468
+
+    def init_blank(self, num_ids, frame_range):
+        """
+        Initialize blank ground truth.
+
+        :param num_ids: number of identities
+        :param frame_range: start frame, end frame
+        """
+        self.num_ids = num_ids
+        index = pd.MultiIndex.from_product([xrange(frame_range[0], frame_range[1]), xrange(1, self.num_ids + 1)],
+                                           names=['frame', 'id'])
+        self.df = pd.DataFrame(columns=['x', 'y', 'width', 'height', 'confidence'], index=index)
+
+    def load(self, filename):
         """
         Load Multiple Object Tacking Challenge trajectories file.
 
         Format described in https://arxiv.org/abs/1603.00831, section 3.3 Data Format
 
+        Loads trajectories into a DataFrame, columns frame and id start with 1 (MATLAB indexing).
+
         :param filename: mot filename
-        :return: DataFrame, columns frame and id start with 1 (MATLAB indexing)
         """
         df = pd.read_csv(filename, names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'],
-                         index_col=[u'frame'])
-        # return df[(df.x != -1) & (df.y != -1)]
-        df.index -= 1  # MATLAB to 0-based indexing
-        del df['confidence']
-        del df['width']
-        del df['height']
-        df = df[['id', 'y', 'x']]
-        positions = {}
-        for frame, df_frame in df.groupby(level=0):
-            del df_frame['id']
-            positions[frame] = df_frame.values
-
-        gt = cls(df.id.nunique())
-        gt.__positions = positions
-        gt.__min_frame = df.index.min()
-        gt.__max_frame = df.index.max()
-
-        df = pd.read_csv(filename, names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'],
                          index_col=[u'frame', u'id'], converters={u'frame': lambda x: int(x) - 1})
-        gt.df = df[(df.x != -1) & (df.y != -1)]
-        return gt
+        self.df = df[(df.x != -1) & (df.y != -1)]
+        self.num_ids = df.index.unique('id')
 
-    def get_roi(self):
+    def print_statistics(self):
+        number_of_ids_counts = self.df.count(axis=0, level='frame')['x'].value_counts()
+        print('counts of number of object ids in frames:')
+        print(number_of_ids_counts)
+
+        print('frames with number of objects other than 0 or num_ids:')
+        anomalous_object_counts = set(number_of_ids_counts.index) - {0, self.num_ids}
+        for count in anomalous_object_counts:
+            print(self.df.loc[self.df.index.levels[0][self.df.count(axis=0, level='frame')['x'] == count]])    def get_roi(self):
         """
         Return GT rectangular bounds.
 
         :return: xmin, xmax, ymin, ymax
         """
-        yx = np.vstack([self.get_positions(frame) for frame in range(self.min_frame(), self.max_frame())])  # shape=(n, 2), [y, x]
-        return yx[:, 1].min(), yx[:, 1].max(), yx[:, 0].min(), yx[:, 0].max()
-
-    def __init_permutations(self):
-        self.__permutation = {}
-        self.__gt_id_to_real_permutation = {}
-        for id_ in range(self.__num_ids):
-            self.__gt_id_to_real_permutation[id_] = id_
-            self.__permutation[id_] = id_
-
-    def set_permutation_reversed(self, data):
-        self.__permutation = self.get_permutation(data)
-        temp = dict(self.__permutation)
-        for key, val in temp.iteritems():
-            self.__permutation[val] = key
-            self.__gt_id_to_real_permutation[key] = val
-
-    def set_permutation(self, data):
-        """
-        given list of tuples (frame, id, y, x)
-        set internal permutation to fit given experiment
-
-        Args:
-            data:
-
-        Returns:
-
-        """
-
-        self.__permutation = self.get_permutation(data)
-        for key, val in self.__permutation.iteritems():
-            self.__gt_id_to_real_permutation[val] = key
-
-    def get_permutation_reversed(self):
-        return self.__gt_id_to_real_permutation
-
-    def get_permutation_dict(self):
-        return self.__permutation
-
-    def get_permutation(self, data):
-        perm = {}
-        for frame, id_, y, x in data:
-            original_id_, _ = self.match_gt(frame, y, x)
-            perm[id_] = original_id_
-
-        return perm
-
-    def permute(self, data):
-        if isinstance(data, list):
-            new_data = [None for _ in range(len(data))]
-            for i, it in enumerate(data):
-                new_data[self.__permutation[i]] = it
-
-            return new_data
-        elif isinstance(data, int):
-            return self.__permutation[data]
-        else:
-            return None
-
-    def get_num_ids(self):
-        return self.__num_ids
-
-    def load(self, path):
-        # try:
-        with open(path, 'rb') as f:
-            tmp_dict = pickle.load(f)
-
-        if '_GT__positions' not in tmp_dict:
-            self.__positions = tmp_dict
-            self.__num_ids = len(tmp_dict[tmp_dict.keys()[0]])
-            self.__min_frame = min(tmp_dict.keys())
-            self.__max_frame = max(tmp_dict.keys())
-        else:
-            self.__dict__.update(tmp_dict)
-        self.__init_permutations()
-
-        # init df
-        all_positions = [row if row is not None else (None, None, None) for frame in self.__positions.itervalues() for
-                         row in frame]
-        index = pd.MultiIndex.from_product([np.array(self.__positions.keys()) + self.__gt_frames_offset,
-                                            range(1, self.__num_ids + 1)], names=['frame', 'id'])
-        # import ipdb; ipdb.set_trace()
-        df = pd.DataFrame(all_positions, columns=['y', 'x', 'type'], index=index)
-        df.x += self.__gt_x_offset
-        df.y += self.__gt_y_offset
-        self.df = df[['x', 'y', 'type']]
-
-        print("GT was sucessfully loaded from " + path)
-
-    def get_all_ids_around(self, frame, position, max_distance=-1):
-        if max_distance < 0:
-            max_distance = self.__precision
-
-        # TODO: based on __precision returns all ids in radius ordered by distance
-
-        pass
+        return self.df['x'].min(), self.df['x'].max(), self.df['y'].min(), self.df['y'].max()
 
     def set_project_offsets(self, project):
-        self.set_offset(
-            project.video_crop_model['x1'] if project.video_crop_model is not None else 0,
-            project.video_crop_model['y1'] if project.video_crop_model is not None else 0,
-            project.video_start_t)
+        self.shift_gt(
+            -project.video_crop_model['x1'] if project.video_crop_model is not None else 0,
+            -project.video_crop_model['y1'] if project.video_crop_model is not None else 0,
+            -project.video_start_t)
 
-    def set_offset(self, x=0, y=0, frames=0):
+    def shift_gt(self, delta_x=0, delta_y=0, delta_frames=0):
         """
-        Set offset of an external project that will be applied to GT positions before operations with external values.
+        Shift ground truth positions and frame numbers by deltas.
         """
-        self.__x_offset = self.__gt_x_offset - x
-        self.__y_offset = self.__gt_y_offset - y
-        self.__frames_offset = self.__gt_frames_offset - frames
-
-    def __set_frame(self, d, frame):
-        if frame not in d:
-            d[frame] = [None for _ in range(self.__num_ids)]
+        self.df['x'] += delta_x
+        self.df['y'] += delta_y
+        frames_index = gt.df.index.levels[0] + delta_frames
+        self.df.index = pd.MultiIndex.from_product([frames_index, self.df.index.levels[1]], names=['frame', 'id'])
 
     def get_clear_positions(self, frame):
         frame -= self.__frames_offset
-        p = [None for _ in range(self.__num_ids)]
+        p = [None for _ in range(self.num_ids)]
         if frame in self.__positions:
             for i, it in enumerate(self.__positions[frame]):
                 if it is not None:
-                    y, x, type_ = it
-                    if type_ == 1:
-                        p[self.__permutation[i]] = (y + self.__y_offset, x + self.__x_offset)
+                    # y, x, type_ = it
+                    y, x = it
+                    # if type_ == 1:
+                    p[i] = (y + self.__y_offset, x + self.__x_offset)
+                    # p[self.__permutation[i]] = (y + self.__y_offset, x + self.__x_offset)
 
         return p
 
     def get_positions(self, frame):
-        return [pos[:2] for pos in self.get_position_and_type(frame)]
+        """
 
-    def get_positions_and_types(self, frame):
-        frame -= self.__frames_offset
-        p = [None for _ in range(self.__num_ids)]
-        if frame in self.__positions:
-            for i, it in enumerate(self.__positions[frame]):
-                if it is not None:
-                    if len(it) == 3:
-                        y, x, gt_type = it
-                    else:
-                        y, x = it
-                        gt_type = 1
-                    p[self.__permutation[i]] = (y + self.__y_offset, x + self.__x_offset, gt_type)
+        :param frame:
+        :return: DataFrame, indexed by id, with columns x, y, width, height, confidence
+        """
+        return self.df.loc[frame]
 
-        return p
+    def get_positions_numpy(self, frame):
+        """
+
+        :param frame:
+        :return: ndarray, shape=(n, 2)
+        """
+        return self.get_positions()[['x', 'y']].to_numpy()
 
     def get_bboxes(self, frame):
+        """
+        Get GT bounding boxes in a frame.
+
+        :param frame: frame number
+        :return: list of bounding boxes (BBox)
+        """
         assert 'bbox_size_px' in dir(self) and self.bbox_size_px is not None
         bboxes = []
         for obj_id, obj in self.df.loc[frame].iterrows():
@@ -273,6 +152,12 @@ class GT(object):
         return bboxes
 
     def match_bbox(self, query_bbox):
+        """
+        Match query bounding box to the ground truth.
+
+        :param query_bbox: BBox with defined frame
+        :return: None if false positive, best matching BBox otherwise
+        """
         bboxes = self.get_bboxes(query_bbox.frame)
         ious = np.array([bbox.iou(query_bbox) for bbox in bboxes])
         if ious.max() < self.bbox_match_minimal_iou:
@@ -281,203 +166,51 @@ class GT(object):
             return bboxes[ious.argmax()]
 
     def get_matching_obj_id(self, query_bbox):
+        """
+        Match query bounding box to the ground truth and return the matching gt object id.
+
+        :param query_bbox:
+        :return: object id or None
+        """
         matching_bbox = self.match_bbox(query_bbox)
         if matching_bbox is not None:
             return matching_bbox.obj_id
         else:
             return None
 
-    def get_clear_positions_dict(self):
-        positions = {}
-        for f in self.__positions.iterkeys():
-            positions[f] = self.get_clear_positions(f)
+    def set_position(self, frame, id_, x, y):
+        self.df.loc[(frame, id_), ['x', 'y']] = (x, y)
 
-        return positions
-
-    def get_position(self, frame, id_):
-        id_ = self.__permutation[id_]
-        return self.get_clear_positions(frame)[id_]
-
-    def set_position(self, frame, id_, y, x, type_=1):
-        frame -= self.__frames_offset
-        self.__set_frame(self.__positions, frame)
-        id_ = self.__permutation[id_]
-        self.__positions[frame][id_] = (y - self.__y_offset, x - self.__x_offset, type_)
-
-    def save(self, path, make_copy=True):
+    def save(self, filename, make_backup=False):
         import os
         import datetime
 
-        if make_copy:
-            if os.path.exists(path):
-                dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                os.rename(path, path[:-4]+'_'+dt+'.pkl')
+        if make_backup and os.path.exists(filename):
+            dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            os.rename(filename, filename[:-4] + '_' + dt + '.txt')
 
-        with open(path, 'w') as f:
-            pickle.dump(self.__dict__, f, -1)
+        self.df.to_csv(filename, header=False, index=False)
 
-        pass
-
-    def build_from_PN(self, project, frame_limits_start=0, frame_limits_end=-1):
+    def match_xy(self, frame, xy, maximal_match_distance=None):
         """
-        for each tracklet get info from P and N sets
-        Returns:
+        Match query xy to the ground truth.
 
+        :param xy: tuple
+        :return: None if false positive, best matching gt row
         """
-        from utils.misc import print_progress
-        from core.graph.region_chunk import RegionChunk
-        print("... CREATING GT from PN sets ...")
-
-        if frame_limits_end < 0:
-            from utils.video_manager import get_auto_video_manager
-            v = get_auto_video_manager(project)
-            frame_limits_end  = v.total_frame_count()
-
-        self.__min_frame = frame_limits_start
-        self.__max_frame = frame_limits_end
-        self.__num_ids = len(project.animals)
-
-        num_animals = len(project.animals)
-
-        i = 0
-        l = len(project.chm)
-        print_progress(i, l, prefix='Progress:', suffix='Complete', barLength=50)
-
-        for frame in range(frame_limits_start, frame_limits_end):
-            self.__positions[frame] = [None for i in range(self.__num_ids)]
-
-        for t in project.chm.chunk_gen():
-            print_progress(i, l, prefix='Progress:', suffix='Complete', barLength=50)
-            i += 1
-
-            if len(t.P.intersection(t.N)):
-                warnings.warn("PN intersection is not empty! tracklet: "+str(t)+" P: "+str(t.P)+" N:"+str(t.N))
-            # is decided
-            # elif len(t.P.union(t.N)) == num_animals:
-            else:
-                rch = RegionChunk(t, project.gm, project.rm)
-                for r in rch.regions_gen():
-                    frame = r.frame()
-
-                    if frame_limits_start > frame:
-                        continue
-
-                    if frame_limits_end <= frame:
-                        break
-
-                    if len(t.P) == 1:
-                        id_ = list(t.P)[0]
-                        self.__positions[frame][id_] = (r.centroid()[0], r.centroid()[1], 1)
-                    else:
-                        for id_ in list(set(range(num_animals)) - t.N):
-                            self.__positions[frame][id_] = (r.centroid()[0], r.centroid()[1], len(t.P))
-
-        self.__init_permutations()
-        print()
-
-    def match_gt(self, frame, y, x, limit_distance=None):
-        """
-        if self.__precision is not None use this as max distance for match
-
-        return
-        Args:
-            frame:
-            y:
-            x:
-            limit_distance: float >= 0 if provided it overrides self.__precision
-
-        Returns:
-            id, (y, x)
-            None, None if no match
-        """
-        p = self.get_clear_positions(frame)
-
-        best_dist = np.inf
-        if self.__precision is not None:
-            best_dist = self.__precision
-        if limit_distance is not None:
-            best_dist = limit_distance
-
-        best_id = None
-        for id_, data in enumerate(p):
-            if data is None:
-                continue
-            else:
-                y_, x_ = data
-
-            d = ((y-y_)**2 + (x-x_)**2)**0.5
-            if d < best_dist:
-                best_dist = d
-                best_id = id_
-
-        if best_id is None:
-            return None, (-1, -1)
+        distance_vectors = self.df.loc[frame][['x', 'y']] - xy
+        distances = np.sqrt((distance_vectors['x']**2 + distance_vectors['y']**2))
+        matching_id = distances.idxmin()
+        if distances[matching_id] > maximal_match_distance:
+            return None  # fp
         else:
-            best_id_ = best_id
-            # for key, val in self.__permutation.iteritems():
-            #     if best_id == val:
-            #         best_id_ = key
-
-        return best_id_, (p[best_id][0], p[best_id][1])
-
-    def import_from_txt(self):
-        # TODO:
-        pass
-
-    def export2txt(self):
-        # TODO:
-        pass
-
-    def export2cvs(self):
-        # TODO:
-        pass
-
-    def export2pkl(self):
-        # TODO:
-        pass
-
-    def export2json(self):
-        # TODO:
-        pass
-
-    def for_clearmetrics(self, frame_limits_start=0, frame_limits_end=-1):
-        gt = {}
-
-        if frame_limits_end < 0:
-            frame_limits_end = self.__max_frame
-
-        for frame in range(frame_limits_start, frame_limits_end):
-            gt[frame] = []
-            for it in self.get_positions(frame):
-                if it is not None:
-                    it = np.array(it)
-
-                gt[frame].append(it)
-
-        return gt
+            return self.df.loc[frame, matching_id]
 
     def min_frame(self):
-        return self.__min_frame
+        return self.df.index.levels[0].min()
 
     def max_frame(self):
-        """
-
-        :return: max frame number + 1
-        """
-        return self.__max_frame
-
-    def check_none_occurence(self):
-        print("Checking None occurence")
-        for frame, vals in self.__positions.iteritems():
-            for it in vals:
-                if it is None:
-                    print(frame)
-
-                # Old way of representing undefined
-                if it[0] < 50 and it[1] < 100:
-                    print("UNDEF POS:", frame)
-
-        print("DONE")
+        return self.df.index.levels[0].max()
 
     def match_on_data(self, project, frames=None, max_d=5, data_centroids=None, match_on='tracklets', permute=False,
                       progress=True):
@@ -501,7 +234,7 @@ class GT(object):
         i = 0
 
         if frames is None:
-            frames = range(self.min_frame(), self.max_frame())
+            frames = range(self.min_frame(), self.max_frame() + 1)
 
         for frame in tqdm.tqdm(frames, disable=not progress):
             match[frame] = [None for _ in range(len(project.animals))]
@@ -678,9 +411,6 @@ class GT(object):
 
         return True
 
-    def test_edge(self, tracklet1, tracklet2, project):
-        return self.tracklet_id_set(tracklet1, project) == self.tracklet_id_set(tracklet2, project)
-
     def project_stats(self, p):
         num_max_len = 0
         num_max_len_singles = 0
@@ -806,6 +536,29 @@ class GT(object):
                 assert True
         return cardinalities
 
+    def get_positions_backwards(self, frame, max_frames_backwards=10):
+        """
+        Get defined positions in a frame and search for the rest backwards.
+
+        :param frame: frame number
+        :param max_frames_backwards: maximum frame distance from "frame"
+        :return: positions DataFrame
+        """
+        positions = self.get_positions(frame)
+        missing_ids = list(self.df.index.levels[1].difference(positions.index))
+
+        for prev_frame in reversed(range(max(0, frame - max_frames_backwards), frame)):
+            if not missing_ids:
+                break
+            prev_positions = self.get_positions(prev_frame)
+            for obj_id in missing_ids:
+                if obj_id in prev_positions.index:
+                    positions.loc[obj_id] = prev_positions.loc[obj_id]
+                    missing_ids.remove(obj_id)
+
+        return positions.sort_index()
+
+
     def get_region_cardinality(self, project, region):
         """
         Get cardinality for a region according to GT.
@@ -833,6 +586,7 @@ class GT(object):
         """
         assert len(regions) > 0
         frame = regions[0].frame()
+
         for r in regions[1:]:
             assert r.frame() == frame, 'all regions have to belong to a single frame'
 
@@ -860,7 +614,7 @@ class GT(object):
 
     def _get_index(self):
         return pd.MultiIndex.from_product([range(min(self.df.index.levels[0]), max(self.df.index.levels[0]) + 1),
-                                           range(1, self.__num_ids + 1)], names=['frame', 'id'])
+                                           range(1, self.num_ids + 1)], names=['frame', 'id'])
 
     def fill_missing_positions_with_nans(self):
         self.df = self.df.reindex(index=self._get_index, fill_value=np.nan)
@@ -879,10 +633,68 @@ class GT(object):
         if frame_range is None:
             frame_range = (self.min_frame(), self.max_frame() + 1)
         if ids is None:
-            ids = range(self.get_num_ids())
-        yx = np.array([gt.get_positions(frame) for frame in range(*frame_range)])  # shape=(frames, ids, yx)
+            ids = range(self.num_ids)
+        yx = np.array([self.get_positions(frame) for frame in range(*frame_range)])  # shape=(frames, ids, yx)
         for i in ids:
             plt.plot(yx[:, i, 1], yx[:, i, 0], label=i)
+
+
+class GtPermutationsMixin(object):
+    def __init__(self):
+        self.__permutation = {}
+        self.__gt_id_to_real_permutation = {}
+        for id_ in range(self.__num_ids):
+            self.__gt_id_to_real_permutation[id_] = id_
+            self.__permutation[id_] = id_
+
+    def set_permutation_reversed(self, data):
+        self.__permutation = self.get_permutation(data)
+        temp = dict(self.__permutation)
+        for key, val in temp.iteritems():
+            self.__permutation[val] = key
+            self.__gt_id_to_real_permutation[key] = val
+
+    def set_permutation(self, data):
+        """
+        given list of tuples (frame, id, y, x)
+        set internal permutation to fit given experiment
+
+        Args:
+            data:
+
+        Returns:
+
+        """
+
+        self.__permutation = self.get_permutation(data)
+        for key, val in self.__permutation.iteritems():
+            self.__gt_id_to_real_permutation[val] = key
+
+    def get_permutation_reversed(self):
+        return self.__gt_id_to_real_permutation
+
+    def get_permutation_dict(self):
+        return self.__permutation
+
+    def get_permutation(self, data):
+        perm = {}
+        for frame, id_, y, x in data:
+            original_id_, _ = self.match_gt(frame, y, x)
+            perm[id_] = original_id_
+
+        return perm
+
+    def permute(self, data):
+        if isinstance(data, list):
+            new_data = [None for _ in range(len(data))]
+            for i, it in enumerate(data):
+                new_data[self.__permutation[i]] = it
+
+            return new_data
+        elif isinstance(data, int):
+            return self.__permutation[data]
+        else:
+            return None
 
 from core.region.bbox import BBox
 
@@ -943,37 +755,64 @@ class GtDummyReIdMixin(object):
 
 
 if __name__ == '__main__':
-    class GtDetector(GtDummyDetectorMixin, GtDummyReIdMixin, GT):
-        pass
+    from core.project.project import Project
+    import matplotlib.pylab as plt
+    gt_filename = 'Cam1_clip.avi.'
+    gt = GT('data/GT/' + gt_filename + 'txt')
+    p = Project.from_dir('../projects/2_temp/Cam1_clip/190510_2038_fixed_seed_fixed_orientation')
+    gt.set_project_offsets(p)
 
-    gt2 = GtDetector.from_mot('data/GT/' + gt_filename + 'txt')
-    gt2.bbox_size_px = 70
-    gt2.init_gt_dummy_detector(gt2.bbox_size_px, fp_prob=0.05, fn_prob=0.001, false_detection_jitter_scale=40)
-    gt2.init_gt_dummy_reid()
-    # print(((gt.df[['x', 'y']] - gt2.df[['x', 'y']]) > 0.1).any(axis=1).nonzero())
-    # print(gt.df.type.value_counts(dropna=False))
-    detections = []
-    for frame in tqdm.tqdm(xrange(gt2.min_frame(), gt2.max_frame() + 1)):
-        detections.append(gt2.detect(frame))
+    # index = pd.MultiIndex.from_product([xrange(gt.min_frame(), gt.max_frame() + 1), xrange(1, gt.get_num_ids() + 1)],
+    #                                    names=['frame', 'id'])
+    # df = pd.DataFrame(columns=['x1', 'y1', 'x2', 'y2', 'confidence'], index=index)
+    #
+    # frame_range = xrange(gt.min_frame(), gt.max_frame() + 1)
+    # matches = gt.match_on_data(p, frame_range)
+    # for frame, tracklet_ids in tqdm.tqdm(matches.items()):
+    #     # img = p.img_manager.get_whole_img(frame)
+    #     # plt.imshow(img)
+    #     for gt_id, tracklet_id in enumerate(tracklet_ids, 1):
+    #         if tracklet_id is not None:
+    #             r = p.chm[tracklet_id].get_region_in_frame(frame)
+    #             head, tail = r.get_head_tail()
+    #             df.loc[frame, gt_id] = np.concatenate((head[::-1], tail[::-1], [1]))
+    #     #     plt.plot(head[1], head[0], 'o')
+    #     #     plt.plot(tail[1], tail[0], 'x')
+    #     # plt.show()
 
-    pickle.dump(detections, open('detections.pkl', 'w'))
-    import pickle
-    dmax = 100
-    from collections import defaultdict
-    X = defaultdict(list)
-    y = defaultdict(list)
-    from itertools import product
-    for frame1 in tqdm.tqdm(xrange(gt2.min_frame(), gt2.max_frame() + 1)):
-        for frame2 in range(frame1, min(frame1 + dmax, gt2.max_frame())):
-            delta = frame2 - frame1
-            for bb1, bb2 in product(detections[frame1], detections[frame2]):
-                # spatial = ...
-                if bb1.obj_id is None or bb2.obj_id is None or bb1.obj_id != bb2.obj_id:
-                    y[delta].append(0)
-                else:
-                    y[delta].append(1)
-                X[delta].append([bb1 - bb2, gt2.reid(bb1, bb2)])
-    pickle.dump({'X': X, 'y': y}, open('pairwise_features.pkl', 'w'))
+
+
+    # class GtDetector(GtDummyDetectorMixin, GtDummyReIdMixin, GT):
+    #     pass
+    #
+    # gt2 = GtDetector('data/GT/' + gt_filename + 'txt')
+    # gt2.bbox_size_px = 70
+    # gt2.init_gt_dummy_detector(gt2.bbox_size_px, fp_prob=0.05, fn_prob=0.001, false_detection_jitter_scale=40)
+    # gt2.init_gt_dummy_reid()
+    # # print(((gt.df[['x', 'y']] - gt2.df[['x', 'y']]) > 0.1).any(axis=1).nonzero())
+    # # print(gt.df.type.value_counts(dropna=False))
+    # detections = []
+    # for frame in tqdm.tqdm(xrange(gt2.min_frame(), gt2.max_frame() + 1)):
+    #     detections.append(gt2.detect(frame))
+    #
+    # pickle.dump(detections, open('detections.pkl', 'w'))
+    # import pickle
+    # dmax = 100
+    # from collections import defaultdict
+    # X = defaultdict(list)
+    # y = defaultdict(list)
+    # from itertools import product
+    # for frame1 in tqdm.tqdm(xrange(gt2.min_frame(), gt2.max_frame() + 1)):
+    #     for frame2 in range(frame1, min(frame1 + dmax, gt2.max_frame())):
+    #         delta = frame2 - frame1
+    #         for bb1, bb2 in product(detections[frame1], detections[frame2]):
+    #             # spatial = ...
+    #             if bb1.obj_id is None or bb2.obj_id is None or bb1.obj_id != bb2.obj_id:
+    #                 y[delta].append(0)
+    #             else:
+    #                 y[delta].append(1)
+    #             X[delta].append([bb1 - bb2, gt2.reid(bb1, bb2)])
+    # pickle.dump({'X': X, 'y': y}, open('pairwise_features.pkl', 'w'))
 
 #     import cv2
 #     from core.project.project import Project
@@ -986,3 +825,6 @@ if __name__ == '__main__':
 #             bbox.move(-np.array([p.video_crop_model['x1'], p.video_crop_model['y1']])).draw_to_image(img)
 #         cv2.imwrite('out/gtdetector/{:03d}.png'.format(frame), img)
 #
+
+for data in pos.data_vars.itervalues():
+    data.values[data.values == -1] = np.nan
