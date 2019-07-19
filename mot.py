@@ -10,7 +10,6 @@ For more help run this file as a script with --help parameter.
 TODO: merge with utils.gt.gt
 """
 import pandas as pd
-import errno
 import numpy as np
 import sys
 import warnings
