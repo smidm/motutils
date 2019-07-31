@@ -15,6 +15,9 @@ import sys
 import warnings
 import scipy.optimize
 
+metrics_higher_is_better = ['idf1', 'idp', 'idr', 'recall', 'precision','mota']
+metrics_lower_is_better = ['num_false_positives', 'num_misses', 'num_switches','num_fragmentations', 'motp', 'motp_px']
+
 
 def load_idtracker(filename):
     """
