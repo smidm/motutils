@@ -3,8 +3,9 @@ import numpy as np
 
 
 class GtDummyDetectorMixin(object):
-    def init_gt_dummy_detector(self, bb_size_px, fp_prob=0, fn_prob=0,
-                               true_detection_jitter_scale=None, false_detection_jitter_scale=None):
+    def __init__(self, bb_size_px=None, fp_prob=0, fn_prob=0,
+                 true_detection_jitter_scale=None,
+                 false_detection_jitter_scale=None, **kwargs):
         self.detector_bb_size_px = bb_size_px
         self.detector_fp_prob = fp_prob  # probability of false positive detection per actual object in gt
         self.detector_fn_prob = fn_prob
@@ -16,6 +17,7 @@ class GtDummyDetectorMixin(object):
             self.false_scale = bb_size_px
         else:
             self.false_scale = false_detection_jitter_scale
+        super(GtDummyDetectorMixin, self).__init__(**kwargs)
 
     def detect(self, frame_nr):
         bboxes = []
