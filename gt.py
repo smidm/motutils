@@ -48,15 +48,14 @@ class GT(object):
         """
         Initialize blank ground truth.
 
-        :param ids: list of identities
         :param frames: list of frames
+        :param ids: list of identities
         """
-        nans = np.nan * np.ones((len(frames), len(ids)))
-        self.ds = xr.Dataset(data_vars={'x': (['frame', 'id'], nans),
-                                        'y': (['frame', 'id'], nans),
-                                        'width': (['frame', 'id'], nans),
-                                        'height': (['frame', 'id'], nans),
-                                        'confidence': (['frame', 'id'], nans),
+        self.ds = xr.Dataset(data_vars={'x': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
+                                        'y': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
+                                        'width': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
+                                        'height': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
+                                        'confidence': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
                                         },
                              coords={'frame': frames, 'id': ids})
 
@@ -133,7 +132,7 @@ class GT(object):
         :param frame:
         :return: ndarray, shape=(n, 2)
         """
-        return self.get_positions()[['x', 'y']].to_array().values
+        return self.get_positions(frame)[['x', 'y']].to_array().values.T
 
     def get_positions_dataframe(self, frame):
         return self.get_positions(frame).to_dataframe()
@@ -192,8 +191,8 @@ class GT(object):
             return None
 
     def set_position(self, frame, obj_id, x, y):
-        self.ds['x'].loc[frame, obj_id] = x
-        self.ds['y'].loc[frame, obj_id] = y
+        self.ds['x'].loc[{'frame': frame, 'id': obj_id}] = x
+        self.ds['y'].loc[{'frame': frame, 'id': obj_id}] = y
 
     def match_xy(self, frame, xy, maximal_match_distance=None):
         """
