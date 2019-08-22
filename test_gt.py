@@ -117,6 +117,10 @@ class GTTestCase(unittest.TestCase):
         self.assertAlmostEqual(frame_pos.sel({'id': 1})['x'], 434.46, 1)
         self.assertAlmostEqual(frame_pos.sel({'id': 1})['y'], 280.12, 1)
 
+    def test_get_xy_numpy(self):
+        xy = self.gt.get_xy_numpy(0)
+        self.assertTupleEqual(xy.shape, (5, 2))
+
     def test_get_positions_dataframe(self):
         df = self.gt.get_positions_dataframe(1)
         """
