@@ -14,7 +14,7 @@ class GT(object):
     None means not defined.
 
     """
-    def __init__(self, filename=None):
+    def __init__(self, filename=None, **kwds):
         """
         Ground truth stored in xarray.Dataset with frame and id coordinates (frames are 0-indexed).
 
@@ -41,7 +41,7 @@ class GT(object):
         if filename is not None:
             self.load(filename)
 
-        super(GT, self).__init__()  # this calls potential mixin classes init methods
+        super(GT, self).__init__(**kwds)  # this calls potential mixin classes init methods
                                     # see https://stackoverflow.com/a/6099026/322468
 
     def init_blank(self, frames, ids):
@@ -243,15 +243,18 @@ class GT(object):
         count_of_valid_ids = self.ds['x'].count('id')
         return self.ds.sel({'frame': ~count_of_valid_ids.isin([5])})
 
-    def draw(self, frames=None, ids=None):
+    def draw(self, frames=None, ids=None, marker=None):
         import matplotlib.pylab as plt
         if frames is None:
             frames = self.ds['frame'].values
+        if len(frames) == 1 and marker is None:
+            marker = 'o'
         if ids is None:
             ids = self.ds['id'].values
         for obj_id in ids:
             pos = self.ds.sel({'frame': frames, 'id': obj_id})
-            plt.plot(pos['x'], pos['y'], label=obj_id)
+            if not all(pos['x'].isnull()) and not all(pos['y'].isnull()):
+                plt.plot(pos['x'], pos['y'], label=obj_id, marker=marker)
 
 
 class GtPermutationsMixin(object):
