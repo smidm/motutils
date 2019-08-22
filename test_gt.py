@@ -236,7 +236,7 @@ class GTTestCase(unittest.TestCase):
         print(ret)
 
     def test_draw(self):
-        self.gt.draw(0)
+        self.gt.draw([0])
 
 
 if __name__ == '__main__':

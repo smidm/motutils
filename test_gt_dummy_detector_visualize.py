@@ -12,11 +12,10 @@ class GtDetector(GtProjectMixin, GtDummyDetectorMixin, GT):
 
 class GTDetectorVisualizeTestCase(unittest.TestCase):
     def setUp(self):
-        self.detector = GtDetector('data/GT/Sowbug3_cut.txt')
-        self.detector.bbox_size_px = 70
-        self.detector.init_gt_dummy_detector(self.detector.bbox_size_px,
-                                             fp_prob=0.05, fn_prob=0.001,
-                                             false_detection_jitter_scale=40)
+        self.detector = GtDetector(filename='data/GT/Sowbug3_cut.txt',
+                                   bb_size_px=70,
+                                   fp_prob=0.05, fn_prob=0.001,
+                                   false_detection_jitter_scale=40)
 
     def test_visualize(self):
         import cv2
