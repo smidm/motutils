@@ -1,17 +1,48 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 import tqdm
+import warnings
+from collections import OrderedDict
 
 
 class GtProjectMixin(object):
-    def __get_ids_from_match(self, match, t_id):
-        return set([id_ for id_, x in enumerate(match) if x == t_id])
+    @classmethod
+    def from_tracklets(cls, project):
+        tracklets = cls()
+        tracklet_ids = [t.id() for t in project.chm.chunk_gen()]
+        assert len(np.unique(tracklet_ids)) == len(tracklet_ids)
+        tracklets.init_blank(range(project.video_start_t, project.video_end_t + 1),
+                             tracklet_ids)
+        for t in project.chm.chunk_gen():
+            for r in t.r_gen(project.rm):
+                y, x = r.centroid()
+                tracklets.set_position(r.frame(), t.id(), x, y)
+        return tracklets
+
+    def __init__(self, **kwds):
+        self.break_on_inconsistency = True
+        self.cached_matched_tracklets = None
+        super(GtProjectMixin, self).__init__(**kwds)
+
+    def __get_ids_from_match(self, match, tracklet_id):
+        """
+
+        :param match: list of tracklet ids
+        :param tracklet_id: tracklet id
+        :return: set of gt ids
+        """
+        return set([obj_id for obj_id, t_id in enumerate(match) if t_id == tracklet_id])
 
     def set_project_offsets(self, project):
         self.add_delta(
             -project.video_crop_model['x1'] if project.video_crop_model is not None else 0,
             -project.video_crop_model['y1'] if project.video_crop_model is not None else 0,
             -project.video_start_t)
+
+    def get_matched_tracklets(self, project):
+        if self.cached_matched_tracklets is None:
+            self.cached_matched_tracklets = self.match_on_data(project)
+        return self.cached_matched_tracklets
 
     def __match_mapping_possible(self, match, ids):
         # there is the same tracklet id in match[ids]
@@ -26,25 +57,24 @@ class GtProjectMixin(object):
 
         return True
 
-    def match_on_data(self, project, frames=None, max_d=5, data_centroids=None, match_on='tracklets', permute=False,
+    def match_on_data(self, project, frames=None, max_distance_px=5, data_centroids=None, match_on='tracklets', permute=False,
                       progress=True):
         """
         Match ground truth on tracklets or regions.
 
         :param project: Project() instance
         :param frames: list or None for all frames where gt is defined
-        :param max_d: maximum euclidean distance in px to match
-        :param data_centroids: centroids for tracklets or regions, None to compute
+        :param max_distance_px: maximum euclidean distance in px to match
+        :param data_centroids: detections for tracklets or regions, None to compute
         :param match_on: 'tracklets' or 'regions'
         :param permute:
-        :return: match, match[frame][gt position id]: chunk or region id
+        :param progress:
+        :return: dict, match[frame][gt position id]: chunk or region id
         """
         from itertools import izip
 
-        # num_frames = self.max_frame() - self.min_frame()
-
-        not_matched = []
-        match = {}
+        # not_matched = []
+        match = OrderedDict()
         i = 0
 
         if frames is None:
@@ -66,84 +96,61 @@ class GtProjectMixin(object):
             else:
                 regions = project.gm.regions_in_t(frame)
 
-            # if len(regions) == 0:
-            #     continue
-
             if data_centroids is None:
-                centroids = np.array([r.centroid() for r in regions])
+                detections = np.array([r.centroid() for r in regions])
             else:
-                centroids = data_centroids[frame]
-
-            if len(centroids) == 0:
+                detections = data_centroids[frame]
+            if len(detections) == 0:
                 continue
 
-            pos = self.__positions[frame - self.__frames_offset]
-            if None in pos:
-                continue
-            pos = np.array([(x[0] + self.__y_offset, x[1] + self.__x_offset) for x in pos])
-            # pos = np.array([(y + self.__y_offset, x + self.__x_offset) for y, x in pos])  # check and replace line above
+            gt_pos = self.get_xy_numpy(frame)[:, ::-1]
+            detections[np.isnan(detections)] = np.inf
+            dists = cdist(gt_pos, detections, 'euclidean')
+            matching_detection_ids = np.argmin(dists, axis=1)  # gt (axis 0) vs detections (axis 1)
+            min_gt_to_det_dists = dists[range(gt_pos.shape[0]), matching_detection_ids]
 
-            centroids[np.isnan(centroids)] = np.inf
-            try:
-                dists = cdist(pos, centroids)
-            except:
-                print(centroids, regions, frame)
-
-            m1_i = np.argmin(dists, axis=1)
-            m1 = dists[range(pos.shape[0]), m1_i]
-
-            for a_id, id_ in enumerate(m1_i):
+            for gt_id, (det_id, gt_det_dist) in enumerate(zip(matching_detection_ids, min_gt_to_det_dists)):
                 if permute:
-                    a_id = self.__permutation[a_id]
+                    gt_id = self.__permutation[gt_id]
 
-                if m1[a_id] > max_d:
+                if np.isnan(gt_det_dist):
+                    continue
+
+                if gt_det_dist <= max_distance_px:
+                    if match_on == 'tracklets':
+                        match[frame][gt_id] = tracklet_ids[det_id]
+                    elif match_on == 'detections':
+                        match[frame][gt_id] = det_id
+                    else:
+                        match[frame][gt_id] = regions[det_id].id()
+                else:
                     # try if inside region...
                     if match_on == 'tracklets':
                         for r, t_id in izip(regions, tracklet_ids):
-                            if r.is_inside(pos[a_id], tolerance=max_d):
-                                match[frame][a_id] = t_id
+                            if r.is_inside(gt_pos[gt_id], tolerance=max_distance_px):
+                                match[frame][gt_id] = t_id
                                 break
-                    elif match_on == 'centroids':
+                    elif match_on == 'detections':
                         raise Exception('not implemented')
                     else:
                         for r in regions:
-                            if r.is_inside(pos[a_id], tolerance=max_d):
-                                match[frame][a_id] = r.id()
+                            if r.is_inside(gt_pos[gt_id], tolerance=max_distance_px):
+                                match[frame][gt_id] = r.id()
                                 break
 
-                    if match[frame][a_id] is None:
-                        not_matched.append(frame)
-                else:
-                    if match_on == 'tracklets':
-                        match[frame][a_id] = tracklet_ids[id_]
-                    elif match_on == 'centroids':
-                        match[frame][a_id] = id_
-                    else:
-                        match[frame][a_id] = regions[id_].id()
+                    # if match[frame][gt_id] is None:
+                    #     not_matched.append(frame)
 
             # TODO: solve big distances for oversegmented regions
-            # dists[range(pos.shape[0]), m1_i] = np.inf
+            # dists[range(gt_pos.shape[0]), matching_detection_ids] = np.inf
             # m2 = np.min(dists, axis=1)
-
-            i += 1
-
-            # if i % 10 == 0:
-            #     print_progress(i, num_frames)
-
-        # print "Done.."
-        # print "Not matched in frames ", not_matched
 
         return match
 
     def tracklet_id_set_without_checks(self, tracklet, project):
-        match = self.match_on_data(project, range(tracklet.start_frame(),
-                                                  tracklet.end_frame() + 1, 10))
-
-        keys = sorted([k for k in match.iterkeys()])
-        match = [match[k] for k in keys]
-
-        ids = self.__get_ids_from_match(match[0], tracklet.id())
-        return [self.__permutation[id_] for id_ in ids]
+        match = self.get_matched_tracklets(project)
+        return self.__get_ids_from_match(match[tracklet.start_frame()], tracklet.id())
+        # return [self.__permutation[id_] for id_ in ids]
 
     def tracklet_id_set(self, tracklet, project):
         """
@@ -156,33 +163,34 @@ class GtProjectMixin(object):
         Returns:
 
         """
-        match = self.match_on_data(project, range(tracklet.start_frame(),
-                                                  tracklet.end_frame() + 1),
-                                   progress=False)
-
-        keys = sorted([k for k in match.iterkeys()])
-        match = [match[k] for k in keys]
-
-        ids = self.__get_ids_from_match(match[0], tracklet.id())
-        if self.test_tracklet_consistency(tracklet, match, ids):
-            return [self.__gt_id_to_real_permutation[id_] for id_ in ids]
-        else:
-            warnings.warn('Tracklet id: {} is inconsistent.'.format(tracklet.id()))
-            print(match, ids)
+        match = self.get_matched_tracklets(project)
+        ids = self.__get_ids_from_match(match[tracklet.start_frame()], tracklet.id())
+        if not self.test_tracklet_consistency(tracklet, match, ids):
             return None
+        else:
+            return ids
+        # if self.test_tracklet_consistency(tracklet, match, ids):
+        #     # return [self.__gt_id_to_real_permutation[id_] for id_ in ids]
+        #     return ids
+        # else:
+        #     warnings.warn('Tracklet id: {} is inconsistent.'.format(tracklet.id()))
+        #     print(match, ids)
+        #     return None
 
-    def test_tracklet_consistency(self, tracklet, match, ids=None):
-        if ids is None:
-            ids = self.__get_ids_from_match(match[0], tracklet.id())
+    def test_tracklet_consistency(self, tracklet, match, ids):
+        track_ids = [self.__get_ids_from_match(match[frame], tracklet.id()) for frame in
+                     range(tracklet.start_frame(), tracklet.end_frame() + 1)]
 
-        for i in range(1, len(match)):
-            if ids != self.__get_ids_from_match(match[i], tracklet.id()):
-                print("CONSISTENCY I, ", i)
-
-                if self.break_on_inconsistency:
-                    return False
-
-        return True
+        unique_track_ids, counts = np.unique(track_ids, return_counts=True)
+        if len(unique_track_ids) > 1:
+            sorting_idx = np.argsort(counts)[::-1]
+            unique_track_ids = unique_track_ids[sorting_idx]  # sorted by counts descending
+            counts = counts[sorting_idx]
+            warnings.warn('tracklet {}, {:.0%} of frames haven\'t consistent track ids'.format(
+                tracklet.id(), counts[1:].sum()/float(counts.sum())))
+            return False
+        else:
+            return True
 
     def test_tracklet_max_len(self, tracklet, project):
         """
@@ -218,21 +226,18 @@ class GtProjectMixin(object):
         not_consistent_list = []
         singles_splits = set()
 
-        matches = self.match_on_data(p, frames=range(0, p.gm.end_t + 1))
+        match = self.get_matched_tracklets(p)
 
         for t in p.chm.chunk_gen():
             single = False
-
-            match = [matches[frame] for frame in range(t.start_frame(), t.end_frame() + 1)]
-            # match = [x for x in self.match_on_data(p, frames=range(t.start_frame(p.gm), t.end_frame(p.gm) + 1)).itervalues()]
-            if match[0].count(t.id()) == 1:
+            if match[t.start_frame()].count(t.id()) == 1:
                 single = True
                 num_singles += 1
-
                 singles_splits.add(t.start_frame())
                 singles_splits.add(t.end_frame())
 
-            if not self.test_tracklet_consistency(t, match):
+            ids = self.__get_ids_from_match(match[t.start_frame()], t.id())
+            if not self.test_tracklet_consistency(t, match, ids):
                 not_consistent += 1
                 not_consistent_list.append(t)
 
@@ -344,8 +349,8 @@ class GtProjectMixin(object):
         :param region: core.region.region.Region instance
         :return: str, cardinality class, one of 'single', 'multi', 'noise'
         """
-        assert region in self.project.rm
-        assert region == self.project.rm[region.id()]
+        assert region in project.rm
+        assert region == project.rm[region.id()]
         cardinalities = self.get_cardinalities(project, region.frame())
         return cardinalities[region.id()]
 
@@ -366,12 +371,12 @@ class GtProjectMixin(object):
             assert r.frame() == frame, 'all regions have to belong to a single frame'
 
         inf = thresh_px * 2
-        regions_yx = np.array([r.centroid() for r in regions])
-        gt_yx = np.array(self.get_positions(frame))
-        dist_mat = cdist(gt_yx, regions_yx)
+        regions_xy = np.array([r.centroid()[::-1] for r in regions])
+        gt_xy = self.get_xy_numpy(frame)
+        dist_mat = cdist(gt_xy, regions_xy)
         dist_mat[dist_mat > thresh_px] = inf
         matched_region_idx = np.argmin(dist_mat, axis=1)
-        n_matches_for_regions = np.zeros(len(regions_yx), dtype=int)
+        n_matches_for_regions = np.zeros(len(regions_xy), dtype=int)
         for idx in matched_region_idx:
             n_matches_for_regions[idx] += 1
 
