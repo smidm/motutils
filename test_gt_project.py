@@ -109,6 +109,20 @@ class GtProjectTestCase(unittest.TestCase):
         self.gt.set_project_offsets(self.p)
         self.gt.tracklet_id_set(next(self.p.chm.chunk_gen()), self.p)
 
+    def test_get_tracklet_cardinality(self):
+        self.gt.set_project_offsets(self.p)
+        tracklet = next(self.p.chm.chunk_gen())
+        cardinality = self.gt.get_tracklet_cardinality(self.p, tracklet)
+        self.assertEqual(cardinality, 1)
+
+    def test_fill_tracklet_cardinalites(self):
+        self.gt.set_project_offsets(self.p)
+        # tracklet_cardinalities_pre = {t.id(): t.cardinality for t in self.p.chm.tracklet_gen()}
+        tracklet_segmentation_class_pre = {t.id(): t.segmentation_class for t in self.p.chm.tracklet_gen()}
+        self.gt.fill_tracklet_cardinalites(self.p)
+        tracklet_cardinalities_post = {t.id(): t.cardinality for t in self.p.chm.tracklet_gen()}
+        tracklet_segmentation_class_post = {t.id(): t.segmentation_class for t in self.p.chm.tracklet_gen()}
+
     def test_get_single_region_ids(self):
         self.gt.set_project_offsets(self.p)
         single_region_ids, animal_ids = self.gt.get_single_region_ids(self.p, max_frame=10)
@@ -116,7 +130,7 @@ class GtProjectTestCase(unittest.TestCase):
 
     def test_get_cardinalities(self):
         self.gt.set_project_offsets(self.p)
-        cardinalities = self.gt.get_cardinalities(self.p, 0)
+        cardinalities = self.gt.get_regions_cardinalities(self.p, 0)
         pass
 
     def test_get_region_cardinality(self):
@@ -127,8 +141,8 @@ class GtProjectTestCase(unittest.TestCase):
     def test_get_cardinalities_without_project(self):
         region = Region(frame=0)
         region.set_centroid([279, 434])
-        cardinalities = self.gt.get_cardinalities_without_project([region], 2)
-        cardinalities = self.gt.get_cardinalities_without_project([region], 0.5)
+        cardinalities = self.gt.get_regions_cardinalities_without_project([region], 2)
+        cardinalities = self.gt.get_regions_cardinalities_without_project([region], 0.5)
         pass
 
 
