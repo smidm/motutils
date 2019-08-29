@@ -73,7 +73,10 @@ class GT(object):
                          names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'],
                          converters={u'frame': lambda x: int(x) - 1})
         df[df == -1] = np.nan
-        self.ds = df.to_xarray()
+        ds = df.to_xarray()
+        # ensure that all frames are in the Dataset
+        self.init_blank(range(ds.frame.min(), ds.frame.max()), ds.id)
+        self.ds = ds.merge(self.ds)
 
     def save(self, filename, make_backup=False):
         import os
@@ -122,7 +125,7 @@ class GT(object):
         """
 
         :param frame:
-        :return: DataFrame, indexed by id, with columns x, y, width, height, confidence
+        :return: xarray.Dataset
         """
         return self.ds.sel({'frame': frame})
 
@@ -135,6 +138,11 @@ class GT(object):
         return self.get_positions(frame)[['x', 'y']].to_array().values.T
 
     def get_positions_dataframe(self, frame):
+        """
+
+        :param frame:
+        :return: DataFrame, indexed by id, with columns x, y, width, height, confidence
+        """
         return self.get_positions(frame).to_dataframe()
 
     def get_bboxes(self, frame):
