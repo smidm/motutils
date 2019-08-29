@@ -3,6 +3,7 @@ from scipy.spatial.distance import cdist
 import tqdm
 import warnings
 from collections import OrderedDict
+from utils.gt.gt import GT
 
 
 class GtProjectMixin(object):
@@ -414,3 +415,10 @@ class GtDummyReIdMixin(object):
             # match
             return np.random.beta(self.reid_match_beta_param, 1)
 
+
+class GtProject(GT, GtProjectMixin):
+    pass
+
+
+class GtReid(GT, GtDummyReIdMixin):
+    pass
