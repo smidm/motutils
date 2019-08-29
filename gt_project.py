@@ -178,6 +178,24 @@ class GtProjectMixin(object):
         #     print(match, ids)
         #     return None
 
+    def get_tracklet_cardinality(self, project, tracklet):
+        id_set = self.tracklet_id_set(tracklet, project)
+        if id_set is not None:
+            return len(id_set)
+        else:
+            return None
+
+    def fill_tracklet_cardinalites(self, project):
+        for t in project.chm.chunk_gen():
+            cardinality = self.get_tracklet_cardinality(project, t)
+            project.chm[t.id()].cardinality = cardinality
+            if cardinality == 1:
+                project.chm[t.id()].segmentation_class = 0  # single
+            elif cardinality >= 1:
+                project.chm[t.id()].segmentation_class = 1  # multi
+            else:
+                project.chm[t.id()].segmentation_class = 2  # noise
+
     def test_tracklet_consistency(self, tracklet, match, ids):
         track_ids = [self.__get_ids_from_match(match[frame], tracklet.id()) for frame in
                      range(tracklet.start_frame(), tracklet.end_frame() + 1)]
@@ -318,7 +336,7 @@ class GtProjectMixin(object):
 
         return t_class, id_set
 
-    def get_cardinalities(self, project, frame):
+    def get_regions_cardinalities(self, project, frame):
         """
         Get cardinalities for regions in the frame according to GT.
 
@@ -352,10 +370,10 @@ class GtProjectMixin(object):
         """
         assert region in project.rm
         assert region == project.rm[region.id()]
-        cardinalities = self.get_cardinalities(project, region.frame())
+        cardinalities = self.get_regions_cardinalities(project, region.frame())
         return cardinalities[region.id()]
 
-    def get_cardinalities_without_project(self, regions, thresh_px):
+    def get_regions_cardinalities_without_project(self, regions, thresh_px):
         """
         Get cardinalities for regions independent on a project.
 
