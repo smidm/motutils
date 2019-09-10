@@ -89,7 +89,7 @@ class GT(object):
         df = self.ds.to_dataframe().reset_index()
         df[df.isna()] = -1
         df['frame'] += 1
-        df.to_csv(filename, index=False, header=False)
+        df.to_csv(filename, index=False) # , header=False)
 
     def print_statistics(self):
         print('counts of number of object ids in frames:')
@@ -198,9 +198,10 @@ class GT(object):
         else:
             return None
 
-    def set_position(self, frame, obj_id, x, y):
+    def set_position(self, frame, obj_id, x, y, confidence=1.0):
         self.ds['x'].loc[{'frame': frame, 'id': obj_id}] = x
         self.ds['y'].loc[{'frame': frame, 'id': obj_id}] = y
+        self.ds['confidence'].loc[{'frame': frame, 'id': obj_id}] = confidence
 
     def match_xy(self, frame, xy, maximal_match_distance=None):
         """
@@ -261,7 +262,7 @@ class GT(object):
             ids = self.ds['id'].values
         for obj_id in ids:
             pos = self.ds.sel({'frame': frames, 'id': obj_id})
-            if not all(pos['x'].isnull()) and not all(pos['y'].isnull()):
+            if not pos['x'].isnull().all() and not pos['y'].isnull().all():
                 plt.plot(pos['x'], pos['y'], label=obj_id, marker=marker)
 
 
