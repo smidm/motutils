@@ -40,6 +40,12 @@ class GtProjectMixin(object):
             -project.video_crop_model['y1'] if project.video_crop_model is not None else 0,
             -project.video_start_t)
 
+    def undo_project_offsets(self, project):
+        self.add_delta(
+            project.video_crop_model['x1'] if project.video_crop_model is not None else 0,
+            project.video_crop_model['y1'] if project.video_crop_model is not None else 0,
+            project.video_start_t)
+
     def get_matched_tracklets(self, project):
         if self.cached_matched_tracklets is None:
             self.cached_matched_tracklets = self.match_on_data(project)
@@ -70,7 +76,7 @@ class GtProjectMixin(object):
         :param match_on: 'tracklets' or 'regions'
         :param permute:
         :param progress:
-        :return: dict, match[frame][gt position id]: chunk or region id
+        :return: dict of lists, match[frame][gt position id]: chunk or region id or None
         """
         from itertools import izip
 

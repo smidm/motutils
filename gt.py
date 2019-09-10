@@ -322,8 +322,3 @@ class GtPermutationsMixin(object):
             return self.__permutation[data]
         else:
             return None
-
-
-
-
-
