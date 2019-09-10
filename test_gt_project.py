@@ -144,8 +144,3 @@ class GtProjectTestCase(unittest.TestCase):
         cardinalities = self.gt.get_regions_cardinalities_without_project([region], 2)
         cardinalities = self.gt.get_regions_cardinalities_without_project([region], 0.5)
         pass
-
-
-
-
-
