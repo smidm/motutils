@@ -3,6 +3,7 @@ import xarray as xr
 import pandas as pd
 from shapes.bbox import BBox
 from utils.gt.gt import GT
+from itertools import product
 
 
 def load_any(filename):
@@ -48,7 +49,6 @@ class PoseGt(GT):
     def load(self, filename):
         df = pd.read_csv(filename, index_col=['frame', 'id', 'keypoint'],
                          converters={u'frame': lambda x: int(x) - 1})
-        #                          names=[u'frame', u'id', u'keypoint', u'x', u'y', u'confidence'],
         df[df == -1] = np.nan
         ds = df.to_xarray()
         # ensure that all frames are in the Dataset
@@ -122,6 +122,26 @@ class PoseGt(GT):
             return self.ds.sel({'frame': frame, 'id': matching_id})
         else:
             return None
+
+    def draw_frame(self, img, frame, mapping=None):
+        from moviepy.video.tools.drawing import blit
+        if frame in self.ds.frame:
+            if self.markers is None or self.marker_position is None:
+                self._init_draw(marker_radius=3)
+            if mapping is None:
+                mapping = dict(zip(self.ds.id.data, self.ds.id.data))
+            for obj_id, keypoint_id in product(self.ds.id.data, self.ds.keypoint.data):
+                row = self.ds.sel(dict(frame=frame, id=obj_id, keypoint=keypoint_id))
+                if not (np.isnan(row.x) or np.isnan(row.y)):
+                    marker = self.markers[mapping[obj_id]]
+                    img = blit(marker['img'], img, (int(row.x) - self.marker_position[0],
+                                                    int(row.y) - self.marker_position[1]),
+                               mask=marker['mask'])
+        return img
+
+    def get_object_distance(self, frame, obj_id, other):
+        self_pos = self.get_object(frame, obj_id)
+        return np.sqrt(((self_pos[['x', 'y']] - other[['x', 'y']]).to_array() ** 2).sum())
 
     # def draw(self, frames=None, ids=None, marker=None):
     #     import matplotlib.pylab as plt

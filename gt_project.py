@@ -87,7 +87,7 @@ class GtProjectMixin(object):
         if frames is None:
             frames = range(self.min_frame(), self.max_frame() + 1)
 
-        for frame in tqdm.tqdm(frames, disable=not progress):
+        for frame in tqdm.tqdm(frames, disable=not progress, desc='matching gt on project data'):
             match[frame] = [None for _ in range(len(project.animals))]
 
             # add chunk ids

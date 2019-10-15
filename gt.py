@@ -3,16 +3,16 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from shapes.bbox import BBox
+import scipy.optimize
+import warnings
+from collections import Counter
 
 
 class GT(object):
     """
-    Ground truth handling.
+    Multiple object trajectories persistence, visualization, interpolation, analysis.
 
-    When working with a FERDA project, don't forget to set spatial and temporal offsets, see set_project_offsets().
-
-    None means not defined.
-
+    Single object is represented by its centroid.
     """
     def __init__(self, filename=None, **kwds):
         """
@@ -28,15 +28,16 @@ class GT(object):
         Data variables:
             x           (frame, id) float64 434.5 277.7 179.2 180.0 ... nan nan nan nan
             y           (frame, id) float64 279.0 293.6 407.9 430.0 ... nan nan nan nan
-            width       (frame, id) float64 nan nan nan nan nan ... nan nan nan nan nan
-            height      (frame, id) float64 nan nan nan nan nan ... nan nan nan nan nan
             confidence  (frame, id) float64 1.0 1.0 1.0 1.0 1.0 ... 1.0 1.0 1.0 1.0 1.0
-
         """
         self.ds = None
 
         self.bbox_size_px = None
         self.bbox_match_minimal_iou = 0.5
+
+        # see draw_frame()
+        self.marker_position = None
+        self.markers = None
 
         if filename is not None:
             self.load(filename)
@@ -53,24 +54,26 @@ class GT(object):
         """
         self.ds = xr.Dataset(data_vars={'x': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
                                         'y': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
-                                        'width': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
-                                        'height': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
                                         'confidence': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
                                         },
                              coords={'frame': frames, 'id': ids})
 
     def load(self, filename):
         """
-        Load Multiple Object Tacking Challenge trajectories file.
+        Load trajectories of multiple objects from CSV file.
 
-        Format described in https://arxiv.org/abs/1603.00831, section 3.3 Data Format
+        -1 are replaced by nans
 
-        Loads trajectories into a DataFrame, columns frame and id start with 1 (MATLAB indexing).
+        Columns:
+        - frame (first frame is 1, is converted to 0 during loading)
+        - id (arbitrary numbered)
+        - x
+        - y
+        - confidence
 
-        :param filename: mot filename
+        :param filename: mot filename or buffer
         """
         df = pd.read_csv(filename, index_col=['frame', 'id'],
-                         names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'],
                          converters={u'frame': lambda x: int(x) - 1})
         df[df == -1] = np.nan
         ds = df.to_xarray()
@@ -89,7 +92,7 @@ class GT(object):
         df = self.ds.to_dataframe().reset_index()
         df[df.isna()] = -1
         df['frame'] += 1
-        df.to_csv(filename, index=False) # , header=False)
+        df.to_csv(filename, index=False)
 
     def print_statistics(self):
         print('counts of number of object ids in frames:')
@@ -129,6 +132,9 @@ class GT(object):
         """
         return self.ds.sel({'frame': frame})
 
+    def get_object(self, frame, obj_id):
+        return self.ds.sel(dict(frame=frame, id=obj_id))
+
     def get_xy_numpy(self, frame):
         """
 
@@ -141,7 +147,7 @@ class GT(object):
         """
 
         :param frame:
-        :return: DataFrame, indexed by id, with columns x, y, width, height, confidence
+        :return: DataFrame, indexed by id, with columns x, y, confidence
         """
         return self.get_positions(frame).to_dataframe()
 
@@ -157,14 +163,8 @@ class GT(object):
         assert 'bbox_size_px' in dir(self) and self.bbox_size_px is not None
         bboxes = []
         for obj_id, obj in self.get_positions_dataframe(frame).iterrows():
-            if not np.isnan(obj.x):
-                if np.isnan(obj.width) or np.isnan(obj.height):
-                    width = self.bbox_size_px
-                    height = self.bbox_size_px
-                else:
-                    width = obj.width
-                    height = obj.height
-                bbox = BBox.from_xycenter_hw(obj.x, obj.y, width, height, frame)
+            if not (np.isnan(obj.x) or np.isnan(obj.y)):
+                bbox = BBox.from_xycenter_wh(obj.x, obj.y, self.bbox_size_px, self.bbox_size_px, frame)
                 bbox.obj_id = obj_id
                 bboxes.append(bbox)
         return bboxes
@@ -264,6 +264,85 @@ class GT(object):
             pos = self.ds.sel({'frame': frames, 'id': obj_id})
             if not pos['x'].isnull().all() and not pos['y'].isnull().all():
                 plt.plot(pos['x'], pos['y'], label=obj_id, marker=marker)
+
+    def _init_draw(self, marker_radius=10):
+        import matplotlib.pylab as plt
+        from moviepy.video.tools.drawing import circle
+        cm = plt.get_cmap('gist_rainbow')
+        self.colors = dict(zip(self.ds.id.data,
+                               [cm(1. * i / len(self.ds.id), bytes=True)[:3] for i in range(len(self.ds.id))]))
+
+        blur = marker_radius * 0.2
+        img_dim = marker_radius * 2 + 1
+        img_size = (img_dim, img_dim)
+        self.marker_position = (marker_radius, marker_radius)
+        self.markers = {}
+        for obj_id, c in self.colors.iteritems():
+            img = circle(img_size, self.marker_position, marker_radius, c, blur=blur)
+            mask = circle(img_size, self.marker_position, marker_radius, 1, blur=blur)
+            self.markers[obj_id] = {'img': img, 'mask': mask}
+
+    def draw_frame(self, img, frame, mapping=None):
+        """
+        Draw objects on an image.
+
+        :param img: ndarray
+        :param frame: frame
+        :param mapping: mapping of ids, dict
+        :return: image
+        """
+        from moviepy.video.tools.drawing import blit
+        if frame in self.ds.frame:
+            if self.markers is None or self.marker_position is None:
+                self._init_draw()
+            if mapping is None:
+                mapping = dict(zip(self.ds.id.data, self.ds.id.data))
+            for obj_id in self.ds.id.data:
+                row = self.ds.sel(dict(frame=frame, id=obj_id))
+                if not (np.isnan(row.x) or np.isnan(row.y)):
+                    marker = self.markers[mapping[obj_id]]
+                    img = blit(marker['img'], img, (int(row.x) - self.marker_position[0],
+                                                    int(row.y) - self.marker_position[1]),
+                               mask=marker['mask'])
+        return img
+
+    def get_object_distance(self, frame, obj_id, other):
+        self_pos = self.ds.sel(dict(frame=frame, id=obj_id))
+        return np.linalg.norm((self_pos[['x', 'y']] - other[['x', 'y']]).to_array())
+
+    def find_mapping(self, other, n_frames_to_probe=10):
+        """
+        Find spatially close mapping to other set of trajectories.
+
+        Probe n_frames_to_probe frames, most frequent mapping is returned.
+
+        :param other: other trajectories
+        :param n_frames_to_probe: number of random frames to match
+        :return: dict, self ids to other ids
+        """
+        assert len(self.ds.id) == len(other.ds.id)
+        # get positions in a suitable frame
+        self_all_ids = self.ds.where(self.ds.x.count(dim='id') == len(self.ds.id), drop=True)
+        other_all_ids = other.ds.where(other.ds.x.count(dim='id') == len(other.ds.id), drop=True)
+        frames = np.intersect1d(self_all_ids.frame, other_all_ids.frame, assume_unique=True)
+        jjs = Counter()
+        for frame in np.random.choice(frames, n_frames_to_probe):
+            # match positions
+            distance_matrix = np.vectorize(lambda i, j: self.get_object_distance(frame, i, other.get_object(frame, j))) \
+                (*np.meshgrid(self.ds.id, other.ds.id, indexing='ij'))
+            ii, jj = scipy.optimize.linear_sum_assignment(distance_matrix)
+            if np.count_nonzero(distance_matrix[ii, jj] > 10):
+                warnings.warn('large distance beween detection and gt ' + str(distance_matrix[ii, jj]))
+            jjs[tuple(jj)] += 1
+
+        jj = np.array(jjs.most_common()[0][0])
+        self_to_other = dict(zip(self.ds.id[ii].data, other.ds.id[jj].data))
+        # add identity mappings for ids not present in the selected frame
+        # all_ids = df.index.get_level_values(1).unique()
+        # if len(ids) < len(all_ids):
+        #     ids_without_gt_match = set(all_ids) - set(ids)
+        #     self_to_other.update(zip(ids_without_gt_match, ids_without_gt_match))  # add identity mapping
+        return self_to_other
 
 
 class GtPermutationsMixin(object):
