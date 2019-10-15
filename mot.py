@@ -55,6 +55,30 @@ def load_idtracker(filename):
     return df_out
 
 
+def load_idtrackerai(filename):
+    """
+    Load idtracker.ai results
+
+    :param filename: idTracker results (trajectories.txt or trajectories_nogaps.txt)
+    :return: DataFrame with frame 	id 	x 	y 	width 	height 	confidence columns
+    """
+    traj_ndarray = np.load(filename)
+    traj_dict = traj_ndarray.item()
+    n_frames, n_ids, _ = traj_dict['trajectories'].shape
+
+    frames = np.repeat(np.arange(1, n_frames + 1), n_ids).reshape(n_frames, n_ids, 1)
+    obj_ids = np.tile(np.arange(1, n_ids + 1), n_frames).reshape(n_frames, n_ids, 1)
+    df = pd.DataFrame(np.concatenate((frames, obj_ids, traj_dict['trajectories']), axis=2).
+                      reshape((n_frames * n_ids, 4)),
+                      columns=['frame', 'id', 'x', 'y'])
+    df = df.astype({'frame': 'int', 'id': 'int'})
+    df[df.isna()] = -1
+    df['width'] = -1
+    df['height'] = -1
+    df['confidence'] = -1
+    return df
+
+
 def load_toxtrac(filename, topleft_xy=(0, 0)):
     """
     Load ToxTrack results.
@@ -88,7 +112,7 @@ def load_toxtrac(filename, topleft_xy=(0, 0)):
 
 
 def save_mot(filename, df):
-    df.to_csv(filename, header=False, index=False)
+    df.to_csv(filename, index=False)  # header=False,
 
 
 def load_mot(filename):
@@ -200,6 +224,7 @@ if __name__ == '__main__':
     parser.add_argument('--load-tox', type=str, help='load ToxTracker trajectories (e.g., Tracking_0.txt)')
     parser.add_argument('--tox-topleft-xy', nargs='+', type=int, help='position of the arena top left corner, see first tuple in the Arena line in Stats_1.txt')
     parser.add_argument('--load-idtracker', type=str, help='load IdTracker trajectories (e.g., trajectories.txt)')
+    parser.add_argument('--load-idtrackerai', type=str, help='load idtracker.ai trajectories (e.g., trajectories_wo_gaps.npy)')
     parser.add_argument('--load-mot', type=str, nargs='+', help='load a MOT challenge csv file(s)')
     parser.add_argument('--load-gt', type=str, help='load ground truth from a MOT challenge csv file')
     parser.add_argument('--video-in', type=str, help='input video file')
@@ -216,6 +241,8 @@ if __name__ == '__main__':
         dfs = [load_toxtrac(args.load_tox, topleft_xy=args.tox_topleft_xy)]
     elif args.load_idtracker:
         dfs = [load_idtracker(args.load_idtracker)]
+    elif args.load_idtrackerai:
+        dfs = [load_idtrackerai(args.load_idtrackerai)]
     elif args.load_mot:
         dfs = [load_mot(mot) for mot in args.load_mot]
     else:
@@ -232,4 +259,5 @@ if __name__ == '__main__':
 
     if args.video_out:
         assert args.video_in
-        visualize_mot(args.video_in, args.video_out, dfs, args.input_names)  # , duration=3)
+        assert False, ''
+        visualize(args.video_in, args.video_out, dfs, args.input_names)  # , duration=3)
