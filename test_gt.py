@@ -3,6 +3,8 @@ from numpy.testing import assert_array_almost_equal
 import numpy as np
 import utils.gt.gt
 from shapes.bbox import BBox
+import StringIO
+import xarray
 
 
 class GTTestCase(unittest.TestCase):
@@ -102,8 +104,6 @@ class GTTestCase(unittest.TestCase):
         Data variables:
             x           (id) float64 434.5 278.2 179.2 180.0 155.2
             y           (id) float64 280.1 293.7 407.9 430.0 396.3
-            width       (id) float64 nan nan nan nan nan
-            height      (id) float64 nan nan nan nan nan
             confidence  (id) float64 1.0 1.0 1.0 1.0 1.0        
         """
         assert_array_almost_equal(frame_pos['x'],
@@ -155,7 +155,7 @@ class GTTestCase(unittest.TestCase):
 
     def test_match_bbox(self):
         self.gt.bbox_size_px = 10
-        gt_bbox = BBox.from_xycenter_hw(154.97, 397, 10, 10, frame=0)
+        gt_bbox = BBox.from_xycenter_wh(154.97, 397, 10, 10, frame=0)
         matched_bbox = self.gt.match_bbox(gt_bbox)
         self.assertEqual(matched_bbox.frame, 0)
         self.assertEqual(matched_bbox.obj_id, 5)
@@ -166,7 +166,7 @@ class GTTestCase(unittest.TestCase):
 
     def test_get_matching_obj_id(self):
         self.gt.bbox_size_px = 10
-        gt_bbox = BBox.from_xycenter_hw(154.97, 397, 10, 10, frame=0)
+        gt_bbox = BBox.from_xycenter_wh(154.97, 397, 10, 10, frame=0)
         obj_id = self.gt.get_matching_obj_id(gt_bbox)
         self.assertEqual(obj_id, 5)
 
@@ -194,8 +194,6 @@ class GTTestCase(unittest.TestCase):
         Data variables:
             x           (id) float64 430.4 294.0 182.2 163.4 123.9
             y           (id) float64 309.8 299.2 403.7 421.7 382.6
-            width       (id) float64 nan nan nan nan nan
-            height      (id) float64 nan nan nan nan nan
             confidence  (id) float64 1.0 1.0 1.0 1.0 1.0
         """
         ds = self.gt.match_xy(100, (180, 430), 1)
@@ -237,6 +235,27 @@ class GTTestCase(unittest.TestCase):
 
     def test_draw(self):
         self.gt.draw([0])
+
+    def test_find_mapping(self):
+        csv_str = """frame,id,x,y,width,height,confidence
+                1,1,277.67721518987344,293.62025316455697,-1,-1,1
+                1,2,434.48703703703706,279.04814814814813,-1,-1,1
+                1,3,179.2206866895768,407.8803152521979,-1,-1,1
+                1,4,180.0,430.0,-1,-1,1
+                1,5,154.97222222222223,397.0,-1,-1,1
+                2,1,278.1547231270358,293.6628664495114,-1,-1,1
+                2,2,434.4667896678967,280.12546125461256,-1,-1,1
+                2,3,179.2206866895768,407.8803152521979,-1,-1,1
+                2,4,180.0,430.0,-1,-1,1
+                2,5,155.18852459016392,396.3098360655738,-1,-1,1
+        """
+        csv_file = StringIO.StringIO(csv_str)
+        other = utils.gt.gt.GT(csv_file)
+        mapping = self.gt.find_mapping(other)
+        self.assertEqual(mapping, {1: 2, 2: 1, 3: 3, 4: 4, 5: 5})
+
+    def test_get_object_distance(self):
+        dist = self.gt.get_object_distance(0, 1, self.gt.get_object(10, 1))
 
 
 if __name__ == '__main__':
