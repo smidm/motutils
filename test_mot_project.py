@@ -1,4 +1,4 @@
-from utils.gt.gt_project import GtProject, GtReid
+from utils.gt.mot_project import MotProject, OracleReid
 from core.project.project import Project
 import unittest
 from numpy.testing import assert_array_almost_equal
@@ -6,10 +6,10 @@ import numpy as np
 from core.region.region import Region
 
 
-class GtProjectTestCase(unittest.TestCase):
+class MotProjectTestCase(unittest.TestCase):
     def setUp(self):
         self.p = Project('test/project/Sowbug3_cut_300_frames')
-        self.gt = GtProject(filename='data/GT/Sowbug3_cut.txt')
+        self.gt = MotProject(filename='data/GT/Sowbug3_cut.txt')
         """
         <xarray.Dataset>
         Dimensions:     (id: 5)
@@ -40,7 +40,7 @@ class GtProjectTestCase(unittest.TestCase):
         """
 
     def test_from_tracklets(self):
-        gt_tracklets = GtProject.from_tracklets(self.p)
+        gt_tracklets = MotProject.from_tracklets(self.p)
         """
         gt_tracklets.ds.loc[dict(frame=0)].dropna(dim='id', how='all')
 
@@ -98,7 +98,7 @@ class GtProjectTestCase(unittest.TestCase):
         self.assertEqual(match.keys(), [0, 3])
 
         # # visualize gt and tracklets
-        # pos = GtProject.from_tracklets(self.p)
+        # pos = MotProject.from_tracklets(self.p)
         # pos.draw([0], marker='^')
         # self.gt.draw([0], marker='v')
         # import matplotlib.pylab as plt

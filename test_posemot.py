@@ -1,12 +1,12 @@
 import unittest
 import numpy as np
-from utils.gt.posegt import PoseGt, load_any
-from utils.gt.gt import GT
+from utils.gt.posemot import PoseMot, load_any
+from utils.gt.mot import Mot
 
 
-class PoseGtTestCase(unittest.TestCase):
+class PoseMotTestCase(unittest.TestCase):
     def setUp(self):
-        self.gt = PoseGt()
+        self.gt = PoseMot()
         self.gt.init_blank(range(3), range(2), n_points=3)
         for frame in self.gt.ds.frame.values:
             for obj_id in self.gt.ds.id.values:
@@ -24,7 +24,7 @@ class PoseGtTestCase(unittest.TestCase):
     def test_load_save(self):
         out_file = 'test/out/gttestcase.txt'
         self.gt.save(out_file)
-        loaded_gt = PoseGt()
+        loaded_gt = PoseMot()
         loaded_gt.load(out_file)
         self.assertEqual(self.gt.ds, loaded_gt.ds)
 
@@ -122,9 +122,9 @@ class PoseGtTestCase(unittest.TestCase):
         out_file = 'test/out/posegt_test_load_any.txt'
         self.gt.save(out_file)
         gt = load_any(out_file)
-        self.assertTrue(isinstance(gt, PoseGt))
+        self.assertTrue(isinstance(gt, PoseMot))
         gt = load_any('data/GT/5Zebrafish_nocover_22min.txt')
-        self.assertTrue(isinstance(gt, GT))
+        self.assertTrue(isinstance(gt, Mot))
 
 
 if __name__ == '__main__':
