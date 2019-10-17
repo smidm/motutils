@@ -3,10 +3,10 @@ from scipy.spatial.distance import cdist
 import tqdm
 import warnings
 from collections import OrderedDict
-from utils.gt.gt import GT
+from utils.gt.mot import Mot
 
 
-class GtProjectMixin(object):
+class MotProjectMixin(object):
     @classmethod
     def from_tracklets(cls, project):
         tracklets = cls()
@@ -23,14 +23,14 @@ class GtProjectMixin(object):
     def __init__(self, **kwds):
         self.break_on_inconsistency = True
         self.cached_matched_tracklets = None
-        super(GtProjectMixin, self).__init__(**kwds)
+        super(MotProjectMixin, self).__init__(**kwds)
 
     def __get_ids_from_match(self, match, tracklet_id):
         """
 
         :param match: list of tracklet ids
         :param tracklet_id: tracklet id
-        :return: set of gt ids
+        :return: set of ids
         """
         return set([obj_id for obj_id, t_id in enumerate(match) if t_id == tracklet_id])
 
@@ -70,13 +70,13 @@ class GtProjectMixin(object):
         Match ground truth on tracklets or regions.
 
         :param project: Project() instance
-        :param frames: list or None for all frames where gt is defined
+        :param frames: list or None for all frames where positions are defined
         :param max_distance_px: maximum euclidean distance in px to match
         :param data_centroids: detections for tracklets or regions, None to compute
         :param match_on: 'tracklets' or 'regions'
         :param permute:
         :param progress:
-        :return: dict of lists, match[frame][gt position id]: chunk or region id or None
+        :return: dict of lists, match[frame][object id]: chunk or region id or None
         """
         from itertools import izip
 
@@ -87,7 +87,7 @@ class GtProjectMixin(object):
         if frames is None:
             frames = range(self.min_frame(), self.max_frame() + 1)
 
-        for frame in tqdm.tqdm(frames, disable=not progress, desc='matching gt on project data'):
+        for frame in tqdm.tqdm(frames, disable=not progress, desc='matching trajectories on project data'):
             match[frame] = [None for _ in range(len(project.animals))]
 
             # add chunk ids
@@ -110,46 +110,46 @@ class GtProjectMixin(object):
             if len(detections) == 0:
                 continue
 
-            gt_pos = self.get_xy_numpy(frame)[:, ::-1]
+            pos = self.get_xy_numpy(frame)[:, ::-1]
             detections[np.isnan(detections)] = np.inf
-            dists = cdist(gt_pos, detections, 'euclidean')
+            dists = cdist(pos, detections, 'euclidean')
             matching_detection_ids = np.argmin(dists, axis=1)  # gt (axis 0) vs detections (axis 1)
-            min_gt_to_det_dists = dists[range(gt_pos.shape[0]), matching_detection_ids]
+            min_traj_to_det_dists = dists[range(pos.shape[0]), matching_detection_ids]
 
-            for gt_id, (det_id, gt_det_dist) in enumerate(zip(matching_detection_ids, min_gt_to_det_dists)):
+            for obj_id, (det_id, traj_det_dist) in enumerate(zip(matching_detection_ids, min_traj_to_det_dists)):
                 if permute:
-                    gt_id = self.__permutation[gt_id]
+                    obj_id = self.__permutation[obj_id]
 
-                if np.isnan(gt_det_dist):
+                if np.isnan(traj_det_dist):
                     continue
 
-                if gt_det_dist <= max_distance_px:
+                if traj_det_dist <= max_distance_px:
                     if match_on == 'tracklets':
-                        match[frame][gt_id] = tracklet_ids[det_id]
+                        match[frame][obj_id] = tracklet_ids[det_id]
                     elif match_on == 'detections':
-                        match[frame][gt_id] = det_id
+                        match[frame][obj_id] = det_id
                     else:
-                        match[frame][gt_id] = regions[det_id].id()
+                        match[frame][obj_id] = regions[det_id].id()
                 else:
                     # try if inside region...
                     if match_on == 'tracklets':
                         for r, t_id in izip(regions, tracklet_ids):
-                            if r.is_inside(gt_pos[gt_id], tolerance=max_distance_px):
-                                match[frame][gt_id] = t_id
+                            if r.is_inside(pos[obj_id], tolerance=max_distance_px):
+                                match[frame][obj_id] = t_id
                                 break
                     elif match_on == 'detections':
                         raise Exception('not implemented')
                     else:
                         for r in regions:
-                            if r.is_inside(gt_pos[gt_id], tolerance=max_distance_px):
-                                match[frame][gt_id] = r.id()
+                            if r.is_inside(pos[obj_id], tolerance=max_distance_px):
+                                match[frame][obj_id] = r.id()
                                 break
 
-                    # if match[frame][gt_id] is None:
+                    # if match[frame][obj_id] is None:
                     #     not_matched.append(frame)
 
             # TODO: solve big distances for oversegmented regions
-            # dists[range(gt_pos.shape[0]), matching_detection_ids] = np.inf
+            # dists[range(pos.shape[0]), matching_detection_ids] = np.inf
             # m2 = np.min(dists, axis=1)
 
         return match
@@ -418,8 +418,8 @@ class GtProjectMixin(object):
         return cardinalities
 
 
-class GtDummyReIdMixin(object):
-    def init_gt_dummy_reid(self, match_beta_param=5, no_match_beta_param=5):
+class OracleReIdMixin(object):
+    def init_oracle_reid(self, match_beta_param=5, no_match_beta_param=5):
         self.reid_match_beta_param = match_beta_param
         self.reid_no_match_beta_param = no_match_beta_param
 
@@ -440,9 +440,9 @@ class GtDummyReIdMixin(object):
             return np.random.beta(self.reid_match_beta_param, 1)
 
 
-class GtProject(GT, GtProjectMixin):
+class MotProject(Mot, MotProjectMixin):
     pass
 
 
-class GtReid(GT, GtDummyReIdMixin):
+class OracleReid(Mot, OracleReIdMixin):
     pass

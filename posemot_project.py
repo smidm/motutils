@@ -1,17 +1,17 @@
 import tqdm
 import pandas as pd
-from utils.gt.posegt import PoseGt
-from utils.gt.gt_project import GtProject, GtProjectMixin
+from utils.gt.posemot import PoseMot
+from utils.gt.mot_project import MotProject, MotProjectMixin
 
 
-class PoseGtProject(PoseGt, GtProjectMixin):
+class PoseMotProject(PoseMot, MotProjectMixin):
     def __init__(self, project=None, **kwargs):
         self.project = project
-        super(PoseGtProject, self).__init__(**kwargs)
+        super(PoseMotProject, self).__init__(**kwargs)
 
     @classmethod
-    def from_gt_and_regions(cls, project, gt_filename):
-        centroid_gt = GtProject(gt_filename)
+    def from_mot_and_regions(cls, project, gt_filename):
+        centroid_gt = MotProject(gt_filename)
         centroid_gt.set_project_offsets(project)
         pose_gt = cls(project=project)
         pose_gt.init_blank(centroid_gt.ds.frame, centroid_gt.ds.id, 2)
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     for project_path, gt_filename, out_filename in zip(project_paths, gt_filenames, out_filenames):
         print(out_filename)
         p = Project(project_path)
-        # posegt = PoseGtProject.from_gt_and_regions(p, gt_filename)
-        posegt = PoseGtProject(filename=out_filename)
+        # posegt = PoseMotProject.from_mot_and_regions(p, gt_filename)
+        posegt = PoseMotProject(filename=out_filename)
         posegt.undo_project_offsets(p)
         posegt.save(out_filename + '_')

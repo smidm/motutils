@@ -1,4 +1,4 @@
-from utils.gt.gt import GT
+from utils.gt.mot import Mot
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -6,7 +6,7 @@ from shapes.bbox import BBox
 import cv2
 
 
-class BboxMot(GT):
+class BboxMot(Mot):
     def __init__(self, filename=None, **kwds):
         """
         Ground truth stored in xarray.Dataset with frame and id coordinates (frames are 0-indexed).
@@ -25,7 +25,7 @@ class BboxMot(GT):
             height      (frame, id) float64 nan nan nan nan nan ... nan nan nan nan nan
             confidence  (frame, id) float64 1.0 1.0 1.0 1.0 1.0 ... 1.0 1.0 1.0 1.0 1.0
         """
-        super(GT, self).__init__(**kwds)
+        super(Mot, self).__init__(**kwds)
 
     def init_blank(self, frames, ids):
         """

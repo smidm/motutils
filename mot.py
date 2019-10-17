@@ -1,263 +1,403 @@
-"""
-Multi object tracking results and ground truth
-
-- conversion,
-- evaluation,
-- visualization.
-
-For more help run this file as a script with --help parameter.
-
-TODO: merge with utils.gt.gt
-"""
-import pandas as pd
+from __future__ import print_function
 import numpy as np
-import sys
-import warnings
+import pandas as pd
+import xarray as xr
+from shapes.bbox import BBox
 import scipy.optimize
-from utils.gt.visualize import visualize
-
-metrics_higher_is_better = ['idf1', 'idp', 'idr', 'recall', 'precision','mota']
-metrics_lower_is_better = ['num_false_positives', 'num_misses', 'num_switches', 'num_fragmentations', 'motp', 'motp_px']
+import warnings
+from collections import Counter
 
 
-def load_idtracker(filename):
+class Mot(object):
     """
-    Load idTracker results.
+    Multiple object trajectories persistence, visualization, interpolation, analysis.
 
-    Example trajectories.txt:
-
-    X1	Y1	ProbId1	X2	Y2	ProbId2	X3	Y3	ProbId3	X4	Y4	ProbId4	X5	Y5	ProbId5
-    459.85	657.37	NaN	393.9	578.17	NaN	603.95	244.9	NaN	1567.3	142.51	NaN	371.6	120.74	NaN
-    456.43	664.32	NaN	391.7	583.05	NaN	606.34	242.57	NaN	1565.3	138.53	NaN	360.93	121.86	NaN
-    453.22	670.03	NaN	389.63	587.08	NaN	608.41	240.66	NaN	1566.8	132.25	NaN	355.92	122.81	NaN
-    ...
-
-    :param filename: idTracker results (trajectories.txt or trajectories_nogaps.txt)
-    :return: DataFrame with frame 	id 	x 	y 	width 	height 	confidence columns
+    Single object is represented by its centroid.
     """
-    df = pd.read_csv(filename, delim_whitespace=True)
-    df.index += 1
-    n_animals = len(df.columns) // 3
-    for i in range(1, n_animals + 1):
-        df[i] = i
-    df['frame'] = df.index
+    def __init__(self, filename=None, **kwds):
+        """
+        Ground truth stored in xarray.Dataset with frame and id coordinates (frames are 0-indexed).
 
-    objs = []
-    for i in range(1, n_animals + 1):
-        objs.append(
-            df[['frame', i, 'X' + str(i), 'Y' + str(i)]].rename({'X' + str(i): 'x', 'Y' + str(i): 'y', i: 'id'}, axis=1))
-    df_out = pd.concat(objs)
-    df_out.sort_values(['frame', 'id'], inplace=True)
-    df[df.isna()] = -1
-    df_out['width'] = -1
-    df_out['height'] = -1
-    df_out['confidence'] = -1
-    return df_out
+        Example:
+
+        <xarray.Dataset>
+        Dimensions:     (frame: 5928, id: 5)
+        Coordinates:
+          * frame       (frame) int64 0 1 2 3 4 5 6 ... 5922 5923 5924 5925 5926 5927
+          * id          (id) int64 1 2 3 4 5
+        Data variables:
+            x           (frame, id) float64 434.5 277.7 179.2 180.0 ... nan nan nan nan
+            y           (frame, id) float64 279.0 293.6 407.9 430.0 ... nan nan nan nan
+            confidence  (frame, id) float64 1.0 1.0 1.0 1.0 1.0 ... 1.0 1.0 1.0 1.0 1.0
+        """
+        self.ds = None
+
+        self.bbox_size_px = None
+        self.bbox_match_minimal_iou = 0.5
+
+        # see draw_frame()
+        self.marker_position = None
+        self.markers = None
+
+        if filename is not None:
+            self.load(filename)
+
+        super(Mot, self).__init__(**kwds)  # this calls potential mixin classes init methods
+                                    # see https://stackoverflow.com/a/6099026/322468
+
+    def init_blank(self, frames, ids):
+        """
+        Initialize blank ground truth.
+
+        :param frames: list of frames
+        :param ids: list of identities
+        """
+        self.ds = xr.Dataset(data_vars={'x': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
+                                        'y': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
+                                        'confidence': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
+                                        },
+                             coords={'frame': frames, 'id': ids})
+
+    def load(self, filename):
+        """
+        Load trajectories of multiple objects from CSV file.
+
+        -1 are replaced by nans
+
+        Columns:
+        - frame (first frame is 1, is converted to 0 during loading)
+        - id (arbitrary numbered)
+        - x
+        - y
+        - confidence
+
+        :param filename: mot filename or buffer
+        """
+        df = pd.read_csv(filename, index_col=['frame', 'id'],
+                         converters={u'frame': lambda x: int(x) - 1})
+        df[df == -1] = np.nan
+        ds = df.to_xarray()
+        # ensure that all frames are in the Dataset
+        self.init_blank(range(ds.frame.min(), ds.frame.max()), ds.id)
+        self.ds = ds.merge(self.ds)
+
+    def save(self, filename, make_backup=False):
+        import os
+        import datetime
+
+        if make_backup and os.path.exists(filename):
+            dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            os.rename(filename, filename[:-4] + '_' + dt + '.txt')
+
+        df = self.ds.to_dataframe().reset_index()
+        df[df.isna()] = -1
+        df['frame'] += 1
+        df.to_csv(filename, index=False)
+
+    def print_statistics(self):
+        print('counts of number of object ids in frames:')
+        print(np.unique(self.ds['x'].count('id').values, return_counts=True))
+
+        print('frames with number of objects other than 0 or num_ids:')
+        count_of_valid_ids = self.ds['x'].count('id')
+        print(self.ds.sel({'frame': ~count_of_valid_ids.isin([0, self.num_ids()])}))
+
+    def num_ids(self):
+        return len(self.ds['id'])
+
+    def get_roi(self):
+        """
+        Return GT rectangular bounds.
+
+        :return: xmin, xmax, ymin, ymax
+        """
+        return [float(x) for x in [self.ds['x'].min(), self.ds['x'].max(), self.ds['y'].min(), self.ds['y'].max()]]
+
+    def add_delta(self, delta_x=0, delta_y=0, delta_frames=0):
+        """
+        Shift ground truth positions and frame numbers by deltas.
+        """
+        self.ds['x'] += delta_x
+        self.ds['y'] += delta_y
+        self.ds['frame_'] = self.ds.indexes['frame'] + delta_frames
+        self.ds = self.ds.swap_dims({'frame': 'frame_'})
+        del self.ds['frame']
+        self.ds = self.ds.rename({'frame_': 'frame'})
+
+    def get_positions(self, frame):
+        """
+
+        :param frame:
+        :return: xarray.Dataset
+        """
+        return self.ds.sel({'frame': frame})
+
+    def get_object(self, frame, obj_id):
+        return self.ds.sel(dict(frame=frame, id=obj_id))
+
+    def get_xy_numpy(self, frame):
+        """
+
+        :param frame:
+        :return: ndarray, shape=(n, 2)
+        """
+        return self.get_positions(frame)[['x', 'y']].to_array().values.T
+
+    def get_positions_dataframe(self, frame):
+        """
+
+        :param frame:
+        :return: DataFrame, indexed by id, with columns x, y, confidence
+        """
+        return self.get_positions(frame).to_dataframe()
+
+    def get_bboxes(self, frame):
+        """
+        Get GT bounding boxes in a frame.
+
+        The returned BBoxes include obj_id attribute.
+
+        :param frame: frame number
+        :return: list of bounding boxes (BBox)
+        """
+        assert 'bbox_size_px' in dir(self) and self.bbox_size_px is not None
+        bboxes = []
+        for obj_id, obj in self.get_positions_dataframe(frame).iterrows():
+            if not (np.isnan(obj.x) or np.isnan(obj.y)):
+                bbox = BBox.from_xycenter_wh(obj.x, obj.y, self.bbox_size_px, self.bbox_size_px, frame)
+                bbox.obj_id = obj_id
+                bboxes.append(bbox)
+        return bboxes
+
+    def match_bbox(self, query_bbox):
+        """
+        Match query bounding box to the ground truth.
+
+        The returned BBox includes obj_id attribute.
+
+        :param query_bbox: BBox with defined frame
+        :return: None if false positive, best matching BBox otherwise
+        """
+        bboxes = self.get_bboxes(query_bbox.frame)
+        ious = np.array([bbox.iou(query_bbox) for bbox in bboxes])
+        if ious.max() < self.bbox_match_minimal_iou:
+            return None  # fp
+        else:
+            return bboxes[ious.argmax()]
+
+    def get_matching_obj_id(self, query_bbox):
+        """
+        Match query bounding box to the ground truth and return the matching gt object id.
+
+        :param query_bbox:
+        :return: object id or None
+        """
+        matching_bbox = self.match_bbox(query_bbox)
+        if matching_bbox is not None:
+            return matching_bbox.obj_id
+        else:
+            return None
+
+    def set_position(self, frame, obj_id, x, y, confidence=1.0):
+        self.ds['x'].loc[{'frame': frame, 'id': obj_id}] = x
+        self.ds['y'].loc[{'frame': frame, 'id': obj_id}] = y
+        self.ds['confidence'].loc[{'frame': frame, 'id': obj_id}] = confidence
+
+    def match_xy(self, frame, xy, maximal_match_distance=None):
+        """
+        Match query xy to the ground truth.
+
+        :param xy: tuple
+        :return: None if false positive, best matching gt row
+        """
+        distance_vectors = self.ds.sel({'frame': frame}).to_dataframe()[['x', 'y']] - xy
+        distances = np.sqrt((distance_vectors['x']**2 + distance_vectors['y']**2))
+        matching_id = distances.idxmin()
+        if maximal_match_distance is None or distances[matching_id] <= maximal_match_distance:
+            return self.ds.sel({'frame': frame, 'id': matching_id})
+        else:
+            return None  # fp
+
+    def min_frame(self):
+        return int(self.ds['frame'].min())
+
+    def max_frame(self):
+        return int(self.ds['frame'].max())
+
+    def interpolate_positions(self, frames=None, ids=None):
+        """
+        Interpolate missing (nan) positions.
+
+        :param frame: list of frame numbers or None for all frames
+        :param ids: list of ids or None for all ids
+        :return: xarray.Dataset with selected frames and ids and interpolated nans
+        """
+        if frames is None:
+            frames = self.ds.frame
+        if ids is None:
+            ids = self.ds.id
+        # totally inefficient, but really simple: interpolates all nans in selected ids
+        return self.ds.sel({'id': ids}).interpolate_na(dim='frame', use_coordinate=True).sel({'frame': frames})
+
+    def _get_index(self):
+        return pd.MultiIndex.from_product([range(min(self.df.index.levels[0]), max(self.df.index.levels[0]) + 1),
+                                           range(1, self.num_ids + 1)], names=['frame', 'id'])
+
+    def get_missing_positions(self):
+        """
+        Return frame and id pairs that are not defined in the ground truth.
+
+        :return: DataFrame with frame and id columns
+        """
+        count_of_valid_ids = self.ds['x'].count('id')
+        return self.ds.sel({'frame': ~count_of_valid_ids.isin([5])})
+
+    def draw(self, frames=None, ids=None, marker=None):
+        import matplotlib.pylab as plt
+        if frames is None:
+            frames = self.ds['frame'].values
+        if len(frames) == 1 and marker is None:
+            marker = 'o'
+        if ids is None:
+            ids = self.ds['id'].values
+        for obj_id in ids:
+            pos = self.ds.sel({'frame': frames, 'id': obj_id})
+            if not pos['x'].isnull().all() and not pos['y'].isnull().all():
+                plt.plot(pos['x'], pos['y'], label=obj_id, marker=marker)
+
+    def _init_draw(self, marker_radius=10):
+        import matplotlib.pylab as plt
+        from moviepy.video.tools.drawing import circle
+        cm = plt.get_cmap('gist_rainbow')
+        self.colors = dict(zip(self.ds.id.data,
+                               [cm(1. * i / len(self.ds.id), bytes=True)[:3] for i in range(len(self.ds.id))]))
+
+        blur = marker_radius * 0.2
+        img_dim = marker_radius * 2 + 1
+        img_size = (img_dim, img_dim)
+        self.marker_position = (marker_radius, marker_radius)
+        self.markers = {}
+        for obj_id, c in self.colors.iteritems():
+            img = circle(img_size, self.marker_position, marker_radius, c, blur=blur)
+            mask = circle(img_size, self.marker_position, marker_radius, 1, blur=blur)
+            self.markers[obj_id] = {'img': img, 'mask': mask}
+
+    def draw_frame(self, img, frame, mapping=None):
+        """
+        Draw objects on an image.
+
+        :param img: ndarray
+        :param frame: frame
+        :param mapping: mapping of ids, dict
+        :return: image
+        """
+        from moviepy.video.tools.drawing import blit
+        if frame in self.ds.frame:
+            if self.markers is None or self.marker_position is None:
+                self._init_draw()
+            if mapping is None:
+                mapping = dict(zip(self.ds.id.data, self.ds.id.data))
+            for obj_id in self.ds.id.data:
+                row = self.ds.sel(dict(frame=frame, id=obj_id))
+                if not (np.isnan(row.x) or np.isnan(row.y)):
+                    marker = self.markers[mapping[obj_id]]
+                    img = blit(marker['img'], img, (int(row.x) - self.marker_position[0],
+                                                    int(row.y) - self.marker_position[1]),
+                               mask=marker['mask'])
+        return img
+
+    def get_object_distance(self, frame, obj_id, other):
+        self_pos = self.ds.sel(dict(frame=frame, id=obj_id))
+        return np.linalg.norm((self_pos[['x', 'y']] - other[['x', 'y']]).to_array())
+
+    def find_mapping(self, other, n_frames_to_probe=10):
+        """
+        Find spatially close mapping to other set of trajectories.
+
+        Probe n_frames_to_probe frames, most frequent mapping is returned.
+
+        :param other: other trajectories
+        :param n_frames_to_probe: number of random frames to match
+        :return: dict, self ids to other ids
+        """
+        assert len(self.ds.id) == len(other.ds.id)
+        # get positions in a suitable frame
+        self_all_ids = self.ds.where(self.ds.x.count(dim='id') == len(self.ds.id), drop=True)
+        other_all_ids = other.ds.where(other.ds.x.count(dim='id') == len(other.ds.id), drop=True)
+        frames = np.intersect1d(self_all_ids.frame, other_all_ids.frame, assume_unique=True)
+        jjs = Counter()
+        for frame in np.random.choice(frames, n_frames_to_probe):
+            # match positions
+            distance_matrix = np.vectorize(lambda i, j: self.get_object_distance(frame, i, other.get_object(frame, j))) \
+                (*np.meshgrid(self.ds.id, other.ds.id, indexing='ij'))
+            ii, jj = scipy.optimize.linear_sum_assignment(distance_matrix)
+            if np.count_nonzero(distance_matrix[ii, jj] > 10):
+                warnings.warn('large distance beween detection and gt ' + str(distance_matrix[ii, jj]))
+            jjs[tuple(jj)] += 1
+
+        jj = np.array(jjs.most_common()[0][0])
+        self_to_other = dict(zip(self.ds.id[ii].data, other.ds.id[jj].data))
+        # add identity mappings for ids not present in the selected frame
+        # all_ids = df.index.get_level_values(1).unique()
+        # if len(ids) < len(all_ids):
+        #     ids_without_gt_match = set(all_ids) - set(ids)
+        #     self_to_other.update(zip(ids_without_gt_match, ids_without_gt_match))  # add identity mapping
+        return self_to_other
 
 
-def load_idtrackerai(filename):
-    """
-    Load idtracker.ai results
+class GtPermutationsMixin(object):
+    def __init__(self):
+        self.__permutation = {}
+        self.__gt_id_to_real_permutation = {}
+        for id_ in range(self.__num_ids):
+            self.__gt_id_to_real_permutation[id_] = id_
+            self.__permutation[id_] = id_
 
-    :param filename: idTracker results (trajectories.txt or trajectories_nogaps.txt)
-    :return: DataFrame with frame 	id 	x 	y 	width 	height 	confidence columns
-    """
-    traj_ndarray = np.load(filename)
-    traj_dict = traj_ndarray.item()
-    n_frames, n_ids, _ = traj_dict['trajectories'].shape
+    def set_permutation_reversed(self, data):
+        self.__permutation = self.get_permutation(data)
+        temp = dict(self.__permutation)
+        for key, val in temp.iteritems():
+            self.__permutation[val] = key
+            self.__gt_id_to_real_permutation[key] = val
 
-    frames = np.repeat(np.arange(1, n_frames + 1), n_ids).reshape(n_frames, n_ids, 1)
-    obj_ids = np.tile(np.arange(1, n_ids + 1), n_frames).reshape(n_frames, n_ids, 1)
-    df = pd.DataFrame(np.concatenate((frames, obj_ids, traj_dict['trajectories']), axis=2).
-                      reshape((n_frames * n_ids, 4)),
-                      columns=['frame', 'id', 'x', 'y'])
-    df = df.astype({'frame': 'int', 'id': 'int'})
-    df[df.isna()] = -1
-    df['width'] = -1
-    df['height'] = -1
-    df['confidence'] = -1
-    return df
+    def set_permutation(self, data):
+        """
+        given list of tuples (frame, id, y, x)
+        set internal permutation to fit given experiment
 
+        Args:
+            data:
 
-def load_toxtrac(filename, topleft_xy=(0, 0)):
-    """
-    Load ToxTrack results.
+        Returns:
 
-    Example Tracking_0.txt:
-    0	0	1	194.513	576.447	1
-    1	0	1	192.738	580.313	1
-    2	0	1	190.818	584.126	1
-    3	0	1	188.84	588.213	1
-    4	0	1	186.78	592.463	1
+        """
 
-    Documentation of the file format is in
-    [ToxTrac: a fast and robust software for tracking organisms](https://arxiv.org/pdf/1706.02577.pdf) page 33.
+        self.__permutation = self.get_permutation(data)
+        for key, val in self.__permutation.iteritems():
+            self.__gt_id_to_real_permutation[val] = key
 
-    :param filename: Toxtrac results (Tracking_0.txt)
-    :param topleft_xy: tuple, length 2; xy coordinates of the arena top left corner
-    :return: DataFrame with frame 	id 	x 	y 	width 	height 	confidence columns
-    """
-    df = pd.read_csv(filename, delim_whitespace=True,
-                     names=['frame', 'arena', 'id', 'x', 'y', 'label'],
-                     usecols=['frame', 'id', 'x', 'y'])
-    df['frame'] += 1  # MATLAB indexing
-    df['x'] += topleft_xy[0]
-    df['y'] += topleft_xy[1]
-    df = df.assign(width=-1)
-    df = df.assign(height=-1)
-    df = df.assign(confidence=-1)
-    df.sort_values(['frame', 'id'], inplace=True)
-    df[df.isna()] = -1
-    return df
+    def get_permutation_reversed(self):
+        return self.__gt_id_to_real_permutation
 
+    def get_permutation_dict(self):
+        return self.__permutation
 
-def save_mot(filename, df):
-    df.to_csv(filename, index=False)  # header=False,
+    def get_permutation(self, data):
+        perm = {}
+        for frame, id_, y, x in data:
+            original_id_, _ = self.match_gt(frame, y, x)
+            perm[id_] = original_id_
 
+        return perm
 
-def load_mot(filename):
-    """
-    Load Multiple Object Tacking Challenge trajectories file.
+    def permute(self, data):
+        if isinstance(data, list):
+            new_data = [None for _ in range(len(data))]
+            for i, it in enumerate(data):
+                new_data[self.__permutation[i]] = it
 
-    :param filename: mot filename
-    :return: DataFrame, columns frame and id start with 1 (MATLAB indexing)
-    """
-    df = pd.read_csv(filename, index_col=[u'frame', u'id'])  # names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence']
-    return df[(df.x != -1) & (df.y != -1)]
-
-
-def mot_in_roi(df, roi):
-    """
-    Limit MOT to a region of interest.
-
-    :param df: MOT trajectories, DataFrame
-    :param roi: utils.roi.ROI
-    :return: MOT trajectories, DataFrame
-    """
-    idx_in_roi = (df.x >= roi.x()) & (df.y >= roi.y()) & (df.x < roi.x() + roi.width()) & (
-                df.y < roi.y() + roi.height())
-    return df[idx_in_roi]
-
-
-def eval_mot(df_gt, df_results, sqdistth=10000):
-    """
-    Evaluate trajectories by comparing them to a ground truth.
-
-    :param df_gt: ground truth DataFrame, columns <frame>, <id>, <x>, <y>; <frame> and <id> are 1-based; see load_mot
-    :param df_results: result trajectories DataFrame, format same as df_gt
-    :param sqdistth: square of the distance threshold, only detections and ground truth objects closer than
-                     the threshold can be matched
-    :return: (summary DataFrame, MOTAccumulator)
-    """
-    nan_mask = (df_results.x == -1) | (df_results.x == -1) | df_results.x.isna() | df_results.y.isna()
-    if len(df_results[nan_mask]) > 0:
-        warnings.warn('stripping nans from the evaluated trajectories')
-        df_results = df_results[~nan_mask]
-    from motmetrics.utils import compare_to_groundtruth
-    import motmetrics as mm
-    acc = compare_to_groundtruth(df_gt, df_results, dist='euc', distfields=['x', 'y'], distth=sqdistth)
-    mh = mm.metrics.create()
-    # remove id_global_assignment metric, workaround for https://github.com/cheind/py-motmetrics/issues/19
-    metrics = mh.names[:]
-    metrics.remove('id_global_assignment')
-    return mh.compute(acc, metrics), acc  # metrics=mm.metrics.motchallenge_metrics
-
-
-def eval_and_save(gt_file, mot_results_file, out_csv=None):
-    """
-    Evaluate results and save metrics.
-
-    :param gt_file: ground truth filename (MOT format)
-    :param mot_results_file: results filename (MOT format)
-    :param out_csv: output file with a summary
-    """
-    df_gt = load_mot(gt_file)
-    df_results = load_mot(mot_results_file)
-    print('Evaluating...')
-    assert sys.version_info >= (3, 5), 'motmetrics requires Python 3.5'
-    summary, acc = eval_mot(df_gt, df_results)
-    summary['motp_px'] = np.sqrt(summary['motp'])  # convert from square pixels to pixels
-    import motmetrics as mm
-    # mh = mm.metrics.create()
-    print(mm.io.render_summary(summary))
-    if out_csv is not None:
-        summary.to_csv(out_csv, index=False)
-
-
-def results_to_mot(results):
-    """
-    Create MOT challenge format DataFrame out of trajectories array.
-
-    :param results: ndarray, shape=(n_frames, n_animals, 2 or 4); coordinates are in yx order, nan when id not present
-    :return: DataFrame with frame, id, x, y, width, height and confidence columns
-    """
-    assert results.ndim == 3
-    assert results.shape[2] == 2 or results.shape[2] == 4
-    objs = []
-    columns = ['x', 'y']
-    indices = [1, 0]
-    if results.shape[2] == 4:
-        columns.extend(['width', 'height'])
-        indices.extend([3, 2])
-    for i in range(results.shape[1]):
-        df = pd.DataFrame(results[:, i, indices], columns=columns)
-        df['frame'] = range(1, results.shape[0] + 1)
-        df = df[~(df.x.isna() | df.y.isna())]
-        df['id'] = i + 1
-        df = df[['frame', 'id'] + columns]
-        objs.append(df)
-
-    df = pd.concat(objs)
-
-    df.sort_values(['frame', 'id'], inplace=True)
-    if results.shape[2] == 2:
-        df['width'] = -1
-        df['height'] = -1
-    df['confidence'] = -1
-    return df
-
-
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser(description='Convert and visualize mot ground truth and results.')
-    parser.add_argument('--load-tox', type=str, help='load ToxTracker trajectories (e.g., Tracking_0.txt)')
-    parser.add_argument('--tox-topleft-xy', nargs='+', type=int, help='position of the arena top left corner, see first tuple in the Arena line in Stats_1.txt')
-    parser.add_argument('--load-idtracker', type=str, help='load IdTracker trajectories (e.g., trajectories.txt)')
-    parser.add_argument('--load-idtrackerai', type=str, help='load idtracker.ai trajectories (e.g., trajectories_wo_gaps.npy)')
-    parser.add_argument('--load-mot', type=str, nargs='+', help='load a MOT challenge csv file(s)')
-    parser.add_argument('--load-gt', type=str, help='load ground truth from a MOT challenge csv file')
-    parser.add_argument('--video-in', type=str, help='input video file')
-    parser.add_argument('--video-out', type=str, help='write visualization(s) to a video file')
-    parser.add_argument('--write-mot', type=str, help='write trajectories to a MOT challenge csv file')
-    parser.add_argument('--eval', action='store_true', help='evaluate results')
-    parser.add_argument('--write-eval', type=str, help='write evaluation results as a csv file')
-    parser.add_argument('--input-names', type=str, nargs='+', help='names of input MOT files')
-    args = parser.parse_args()
-
-    if args.load_tox:
-        assert args.tox_topleft_xy, 'specify position of the arena top left corner using --tox-topleft-xy'
-        assert len(args.tox_topleft_xy), 'need to pass exactly two values with --tox-topleft-xy'
-        dfs = [load_toxtrac(args.load_tox, topleft_xy=args.tox_topleft_xy)]
-    elif args.load_idtracker:
-        dfs = [load_idtracker(args.load_idtracker)]
-    elif args.load_idtrackerai:
-        dfs = [load_idtrackerai(args.load_idtrackerai)]
-    elif args.load_mot:
-        dfs = [load_mot(mot) for mot in args.load_mot]
-    else:
-        assert False, 'no input files specified'
-
-    if args.write_mot:
-        assert len(dfs) == 1
-        save_mot(args.write_mot, dfs[0])
-
-    if args.eval or args.write_eval:
-        assert args.load_gt
-        assert len(args.load_mot) == 1, 'only single input file can be specified for evaluation'
-        eval_and_save(args.load_gt, args.load_mot[0], args.write_eval)
-
-    if args.video_out:
-        assert args.video_in
-        assert False, ''
-        visualize(args.video_in, args.video_out, dfs, args.input_names)  # , duration=3)
+            return new_data
+        elif isinstance(data, int):
+            return self.__permutation[data]
+        else:
+            return None

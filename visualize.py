@@ -106,6 +106,6 @@ def visualize(video_file, out_video_file, trajectories, names=None,
     out_clip.write_videofile(out_video_file)  # , threads=4
 
 
-    if args.video_out:
-        assert args.video_in
-        visualize_mot(args.video_in, args.video_out, dfs, args.input_names)  # , duration=3)
+    # if args.video_out:
+    #     assert args.video_in
+    #     visualize_mot(args.video_in, args.video_out, dfs, args.input_names)  # , duration=3)

@@ -2,7 +2,7 @@ from shapes.bbox import BBox
 import numpy as np
 
 
-class GtDummyDetectorMixin(object):
+class OracleDetectorMixin(object):
     def __init__(self, bb_size_px=None, fp_prob=0, fn_prob=0,
                  true_detection_jitter_scale=None,
                  false_detection_jitter_scale=None, **kwargs):
@@ -17,7 +17,7 @@ class GtDummyDetectorMixin(object):
             self.false_scale = bb_size_px
         else:
             self.false_scale = false_detection_jitter_scale
-        super(GtDummyDetectorMixin, self).__init__(**kwargs)
+        super(OracleDetectorMixin, self).__init__(**kwargs)
 
     def detect(self, frame_nr):
         bboxes = []

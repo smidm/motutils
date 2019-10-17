@@ -2,23 +2,23 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from shapes.bbox import BBox
-from utils.gt.gt import GT
+from utils.gt.mot import Mot
 from itertools import product
 
 
 def load_any(filename):
     df = pd.read_csv(filename, nrows=2)
     if 'keypoint' in df.columns:
-        gt = PoseGt()
+        gt = PoseMot()
     else:
-        gt = GT()
+        gt = Mot()
     gt.load(filename)
     return gt
 
 
-class PoseGt(GT):
+class PoseMot(Mot):
     def __init__(self, **kwargs):
-        super(PoseGt, self).__init__(**kwargs)
+        super(PoseMot, self).__init__(**kwargs)
 
     def init_blank(self, frames, ids, n_points=1):
         """
