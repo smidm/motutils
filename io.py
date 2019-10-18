@@ -15,9 +15,29 @@ import sys
 import warnings
 import scipy.optimize
 from utils.gt.visualize import visualize
+from utils.gt.mot import Mot
+from utils.gt.posemot import PoseMot
+from utils.gt.bbox_mot import BboxMot
 
 metrics_higher_is_better = ['idf1', 'idp', 'idr', 'recall', 'precision','mota']
 metrics_lower_is_better = ['num_false_positives', 'num_misses', 'num_switches', 'num_fragmentations', 'motp', 'motp_px']
+
+
+def load_any_mot(filename):
+    df = pd.read_csv(filename, nrows=2)
+    try:
+        for s in df.columns:
+            float(s)
+        bbox_mot = True
+    except ValueError:
+        bbox_mot = False
+    if bbox_mot:
+        mot = BboxMot(filename)
+    elif 'keypoint' in df.columns:
+        mot = PoseMot(filename=filename)
+    else:
+        mot = Mot(filename)
+    return mot
 
 
 def load_idtracker(filename):

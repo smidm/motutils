@@ -1,4 +1,3 @@
-from moviepy.video.tools.drawing import blit
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip, clips_array
 from moviepy.video.VideoClip import ColorClip
@@ -106,6 +105,34 @@ def visualize(video_file, out_video_file, trajectories, names=None,
     out_clip.write_videofile(out_video_file)  # , threads=4
 
 
-    # if args.video_out:
-    #     assert args.video_in
-    #     visualize_mot(args.video_in, args.video_out, dfs, args.input_names)  # , duration=3)
+if __name__ == '__main__':
+    import utils.gt.io as io
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Visualize mot trajectories.')
+    parser.add_argument('video_in', type=str, help='input video file')
+    parser.add_argument('video_out', type=str, help='write visualization(s) to a video file')
+    parser.add_argument('--load-tox', type=str, help='load ToxTracker trajectories (e.g., Tracking_0.txt)')
+    parser.add_argument('--tox-topleft-xy', nargs='+', type=int, help='position of the arena top left corner, see first tuple in the Arena line in Stats_1.txt')
+    parser.add_argument('--load-idtracker', type=str, help='load IdTracker trajectories (e.g., trajectories.txt)')
+    parser.add_argument('--load-idtrackerai', type=str, help='load idtracker.ai trajectories (e.g., trajectories_wo_gaps.npy)')
+    parser.add_argument('--load-mot', type=str, nargs='+', help='load multiple object trajectories file(s)')
+    parser.add_argument('--names', type=str, nargs='+', help='names of input files')
+    args = parser.parse_args()
+
+    if args.load_tox:
+        if not args.tox_topleft_xy:
+            parser.error('specify position of the arena top left corner using --tox-topleft-xy')
+        if len(args.tox_topleft_xy) != 2:
+            parser.error('need to pass exactly two values with --tox-topleft-xy')
+        mots = [io.load_toxtrac(args.load_tox, topleft_xy=args.tox_topleft_xy)]
+    elif args.load_idtracker:
+        mots = [io.load_idtracker(args.load_idtracker)]
+    elif args.load_idtrackerai:
+        mots = [io.load_idtrackerai(args.load_idtrackerai)]
+    elif args.load_mot:
+        mots = [io.load_any_mot(filename) for filename in args.load_mot]
+    else:
+        parser.error('no input trajectories specified, see --load options')
+
+    visualize(args.video_in, args.video_out, mots, args.names)  # , duration=3)

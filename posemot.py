@@ -6,16 +6,6 @@ from utils.gt.mot import Mot
 from itertools import product
 
 
-def load_any(filename):
-    df = pd.read_csv(filename, nrows=2)
-    if 'keypoint' in df.columns:
-        gt = PoseMot()
-    else:
-        gt = Mot()
-    gt.load(filename)
-    return gt
-
-
 class PoseMot(Mot):
     def __init__(self, **kwargs):
         super(PoseMot, self).__init__(**kwargs)
