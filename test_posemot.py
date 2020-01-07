@@ -1,7 +1,6 @@
 import unittest
 import numpy as np
-from utils.gt.posemot import PoseMot, load_any
-from utils.gt.mot import Mot
+from utils.gt.posemot import PoseMot
 
 
 class PoseMotTestCase(unittest.TestCase):
@@ -117,14 +116,6 @@ class PoseMotTestCase(unittest.TestCase):
     #     self.gt.draw()
     #     plt.legend()
     #     plt.show()
-
-    def test_load_any(self):
-        out_file = 'test/out/posegt_test_load_any.txt'
-        self.gt.save(out_file)
-        gt = load_any(out_file)
-        self.assertTrue(isinstance(gt, PoseMot))
-        gt = load_any('data/GT/5Zebrafish_nocover_22min.txt')
-        self.assertTrue(isinstance(gt, Mot))
 
 
 if __name__ == '__main__':
