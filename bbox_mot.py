@@ -53,12 +53,12 @@ class BboxMot(Mot):
         :param filename: mot filename or buffer
         """
         df = pd.read_csv(filename, index_col=['frame', 'id'],
-                         names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence'],
-                         converters={u'frame': lambda x: int(x) - 1})
+                         names=['frame', 'id', 'x', 'y', 'width', 'height', 'confidence'],
+                         converters={'frame': lambda x: int(x) - 1})
         df[df == -1] = np.nan
         ds = df.to_xarray()
         # ensure that all frames are in the Dataset
-        self.init_blank(range(ds.frame.min(), ds.frame.max()), ds.id)
+        self.init_blank(list(range(ds.frame.min(), ds.frame.max())), ds.id)
         self.ds = ds.merge(self.ds)
 
     def save(self, filename, make_backup=False):
@@ -115,7 +115,7 @@ class BboxMot(Mot):
             if self.colors is None:
                 self._init_draw()
             if mapping is None:
-                mapping = dict(zip(self.ds.id.data, self.ds.id.data))
+                mapping = dict(list(zip(self.ds.id.data, self.ds.id.data)))
             for bbox in self.get_bboxes(frame):
                 bbox.draw_to_image(img, color=self.colors[mapping[bbox.obj_id]])
         return img

@@ -142,7 +142,7 @@ def load_mot(filename):
     :param filename: mot filename
     :return: DataFrame, columns frame and id start with 1 (MATLAB indexing)
     """
-    df = pd.read_csv(filename, index_col=[u'frame', u'id'])  # names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence']
+    df = pd.read_csv(filename, index_col=['frame', 'id'])  # names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence']
     return df[(df.x != -1) & (df.y != -1)]
 
 
@@ -221,7 +221,7 @@ def results_to_mot(results):
         indices.extend([3, 2])
     for i in range(results.shape[1]):
         df = pd.DataFrame(results[:, i, indices], columns=columns)
-        df['frame'] = range(1, results.shape[0] + 1)
+        df['frame'] = list(range(1, results.shape[0] + 1))
         df = df[~(df.x.isna() | df.y.isna())]
         df['id'] = i + 1
         df = df[['frame', 'id'] + columns]

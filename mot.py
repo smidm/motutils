@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -74,7 +74,7 @@ class Mot(object):
         :param filename: mot filename or buffer
         """
         df = pd.read_csv(filename, index_col=['frame', 'id'],
-                         converters={u'frame': lambda x: int(x) - 1})
+                         converters={'frame': lambda x: int(x) - 1})
         df[df == -1] = np.nan
         ds = df.to_xarray()
         # ensure that all frames are in the Dataset
@@ -240,8 +240,8 @@ class Mot(object):
         return self.ds.sel({'id': ids}).interpolate_na(dim='frame', use_coordinate=True).sel({'frame': frames})
 
     def _get_index(self):
-        return pd.MultiIndex.from_product([range(min(self.df.index.levels[0]), max(self.df.index.levels[0]) + 1),
-                                           range(1, self.num_ids + 1)], names=['frame', 'id'])
+        return pd.MultiIndex.from_product([list(range(min(self.df.index.levels[0]), max(self.df.index.levels[0]) + 1)),
+                                           list(range(1, self.num_ids + 1))], names=['frame', 'id'])
 
     def get_missing_positions(self):
         """
@@ -269,15 +269,15 @@ class Mot(object):
         import matplotlib.pylab as plt
         from moviepy.video.tools.drawing import circle
         cm = plt.get_cmap('gist_rainbow')
-        self.colors = dict(zip(self.ds.id.data,
-                               [cm(1. * i / len(self.ds.id), bytes=True)[:3] for i in range(len(self.ds.id))]))
+        self.colors = dict(list(zip(self.ds.id.data,
+                               [cm(1. * i / len(self.ds.id), bytes=True)[:3] for i in range(len(self.ds.id))])))
 
         blur = marker_radius * 0.2
         img_dim = marker_radius * 2 + 1
         img_size = (img_dim, img_dim)
         self.marker_position = (marker_radius, marker_radius)
         self.markers = {}
-        for obj_id, c in self.colors.iteritems():
+        for obj_id, c in list(self.colors.items()):
             img = circle(img_size, self.marker_position, marker_radius, c, blur=blur)
             mask = circle(img_size, self.marker_position, marker_radius, 1, blur=blur)
             self.markers[obj_id] = {'img': img, 'mask': mask}
@@ -296,7 +296,7 @@ class Mot(object):
             if self.markers is None or self.marker_position is None:
                 self._init_draw()
             if mapping is None:
-                mapping = dict(zip(self.ds.id.data, self.ds.id.data))
+                mapping = dict(list(zip(self.ds.id.data, self.ds.id.data)))
             for obj_id in self.ds.id.data:
                 row = self.ds.sel(dict(frame=frame, id=obj_id))
                 if not (np.isnan(row.x) or np.isnan(row.y)):
@@ -336,7 +336,7 @@ class Mot(object):
             jjs[tuple(jj)] += 1
 
         jj = np.array(jjs.most_common()[0][0])
-        self_to_other = dict(zip(self.ds.id[ii].data, other.ds.id[jj].data))
+        self_to_other = dict(list(zip(self.ds.id[ii].data, other.ds.id[jj].data)))
         # add identity mappings for ids not present in the selected frame
         # all_ids = df.index.get_level_values(1).unique()
         # if len(ids) < len(all_ids):
@@ -356,7 +356,7 @@ class GtPermutationsMixin(object):
     def set_permutation_reversed(self, data):
         self.__permutation = self.get_permutation(data)
         temp = dict(self.__permutation)
-        for key, val in temp.iteritems():
+        for key, val in list(temp.items()):
             self.__permutation[val] = key
             self.__gt_id_to_real_permutation[key] = val
 
@@ -373,7 +373,7 @@ class GtPermutationsMixin(object):
         """
 
         self.__permutation = self.get_permutation(data)
-        for key, val in self.__permutation.iteritems():
+        for key, val in list(self.__permutation.items()):
             self.__gt_id_to_real_permutation[val] = key
 
     def get_permutation_reversed(self):

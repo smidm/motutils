@@ -23,7 +23,7 @@ class PoseMot(Mot):
                 'y': (['frame', 'id', 'keypoint'], np.nan * np.ones((len(frames), len(ids), n_points))),
                 'confidence': (['frame', 'id', 'keypoint'], np.nan * np.ones((len(frames), len(ids), n_points))),
                 }
-        self.ds = xr.Dataset(data_vars=data, coords={'frame': frames, 'id': ids, 'keypoint': range(n_points)})
+        self.ds = xr.Dataset(data_vars=data, coords={'frame': frames, 'id': ids, 'keypoint': list(range(n_points))})
 
     # def load(self, filename):
     #     pass
@@ -38,11 +38,11 @@ class PoseMot(Mot):
 
     def load(self, filename):
         df = pd.read_csv(filename, index_col=['frame', 'id', 'keypoint'],
-                         converters={u'frame': lambda x: int(x) - 1})
+                         converters={'frame': lambda x: int(x) - 1})
         df[df == -1] = np.nan
         ds = df.to_xarray()
         # ensure that all frames are in the Dataset
-        self.init_blank(range(ds.frame.min(), ds.frame.max()), ds.id, len(ds.keypoint))
+        self.init_blank(range(ds.frame.min().item(), ds.frame.max().item()), ds.id, len(ds.keypoint))
         self.ds = ds.merge(self.ds)
 
     def get_obj_roi(self, frame, obj_id):
@@ -119,7 +119,7 @@ class PoseMot(Mot):
             if self.markers is None or self.marker_position is None:
                 self._init_draw(marker_radius=3)
             if mapping is None:
-                mapping = dict(zip(self.ds.id.data, self.ds.id.data))
+                mapping = dict(list(zip(self.ds.id.data, self.ds.id.data)))
             for obj_id, keypoint_id in product(self.ds.id.data, self.ds.keypoint.data):
                 row = self.ds.sel(dict(frame=frame, id=obj_id, keypoint=keypoint_id))
                 if not (np.isnan(row.x) or np.isnan(row.y)):

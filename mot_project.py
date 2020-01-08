@@ -12,7 +12,7 @@ class MotProjectMixin(object):
         tracklets = cls()
         tracklet_ids = [t.id() for t in project.chm.chunk_gen()]
         assert len(np.unique(tracklet_ids)) == len(tracklet_ids)
-        tracklets.init_blank(range(project.video_start_t, project.video_end_t + 1),
+        tracklets.init_blank(list(range(project.video_start_t, project.video_end_t + 1)),
                              tracklet_ids)
         for t in project.chm.chunk_gen():
             for r in t.r_gen(project.rm):
@@ -78,14 +78,14 @@ class MotProjectMixin(object):
         :param progress:
         :return: dict of lists, match[frame][object id]: chunk or region id or None
         """
-        from itertools import izip
+        
 
         # not_matched = []
         match = OrderedDict()
         i = 0
 
         if frames is None:
-            frames = range(self.min_frame(), self.max_frame() + 1)
+            frames = list(range(self.min_frame(), self.max_frame() + 1))
 
         for frame in tqdm.tqdm(frames, disable=not progress, desc='matching trajectories on project data'):
             match[frame] = [None for _ in range(len(project.animals))]
@@ -114,7 +114,7 @@ class MotProjectMixin(object):
             detections[np.isnan(detections)] = np.inf
             dists = cdist(pos, detections, 'euclidean')
             matching_detection_ids = np.argmin(dists, axis=1)  # gt (axis 0) vs detections (axis 1)
-            min_traj_to_det_dists = dists[range(pos.shape[0]), matching_detection_ids]
+            min_traj_to_det_dists = dists[list(range(pos.shape[0])), matching_detection_ids]
 
             for obj_id, (det_id, traj_det_dist) in enumerate(zip(matching_detection_ids, min_traj_to_det_dists)):
                 if permute:
@@ -133,7 +133,7 @@ class MotProjectMixin(object):
                 else:
                     # try if inside region...
                     if match_on == 'tracklets':
-                        for r, t_id in izip(regions, tracklet_ids):
+                        for r, t_id in zip(regions, tracklet_ids):
                             if r.is_inside(pos[obj_id], tolerance=max_distance_px):
                                 match[frame][obj_id] = t_id
                                 break
@@ -230,13 +230,13 @@ class MotProjectMixin(object):
 
         frame = tracklet.start_frame() - 1
         if frame > 0:
-            match = [x for x in self.match_on_data(project, [frame]).itervalues()][0]
+            match = [x for x in list(self.match_on_data(project, [frame]).values())][0]
             if self.__match_mapping_possible(match, ids):
                 return False
 
         frame = tracklet.end_frame() + 1
         if frame < self.__max_frame:
-            match = [x for x in self.match_on_data(project, [frame]).itervalues()][0]
+            match = [x for x in list(self.match_on_data(project, [frame]).values())][0]
             if self.__match_mapping_possible(match, ids):
                 return False
 
@@ -289,7 +289,7 @@ class MotProjectMixin(object):
         animal_ids = []
         match = self.match_on_data(project, match_on='regions')
 
-        for frame in match.iterkeys():
+        for frame in list(match.keys()):
             if frame > max_frame:
                 continue
 

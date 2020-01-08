@@ -18,7 +18,7 @@ class PoseMotProject(PoseMot, MotProjectMixin):
 
         missing_regions = []
         non_single_regions = []
-        for frame, region_ids in tqdm.tqdm(centroid_gt.match_on_data(project, match_on='regions').items(), #  , frames=range(100)
+        for frame, region_ids in tqdm.tqdm(list(centroid_gt.match_on_data(project, match_on='regions').items()), #  , frames=range(100)
                                            desc='creating pose gt'):
             for obj_id, region_id in zip(pose_gt.ds.id.values, region_ids):
                 if region_id is not None:
