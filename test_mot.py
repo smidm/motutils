@@ -3,7 +3,7 @@ from numpy.testing import assert_array_almost_equal
 import numpy as np
 import utils.gt.mot
 from shapes.bbox import BBox
-import StringIO
+import io
 import xarray
 
 
@@ -40,7 +40,7 @@ class MotTestCase(unittest.TestCase):
         self.gt = utils.gt.mot.Mot(self.filename)
 
     def test_init_blank(self):
-        self.gt.init_blank(range(0, 101), range(1, 6))
+        self.gt.init_blank(list(range(0, 101)), list(range(1, 6)))
         print(self.gt.ds)
 
     def test_load(self):
@@ -249,7 +249,7 @@ class MotTestCase(unittest.TestCase):
                 2,4,180.0,430.0,-1,-1,1
                 2,5,155.18852459016392,396.3098360655738,-1,-1,1
         """
-        csv_file = StringIO.StringIO(csv_str)
+        csv_file = io.StringIO(csv_str)
         other = utils.gt.mot.Mot(csv_file)
         mapping = self.gt.find_mapping(other)
         self.assertEqual(mapping, {1: 2, 2: 1, 3: 3, 4: 4, 5: 5})

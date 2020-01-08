@@ -91,11 +91,11 @@ class MotProjectTestCase(unittest.TestCase):
         self.gt.set_project_offsets(self.p)
         match = self.gt.match_on_data(self.p, frames=(0, 3))
         self.assertEqual(len(match), 2)
-        self.assertEqual(match.keys(), [0, 3])
+        self.assertEqual(list(match.keys()), [0, 3])
 
         match = self.gt.match_on_data(self.p, frames=(0, 3), match_on='regions')
         self.assertEqual(len(match), 2)
-        self.assertEqual(match.keys(), [0, 3])
+        self.assertEqual(list(match.keys()), [0, 3])
 
         # # visualize gt and tracklets
         # pos = MotProject.from_tracklets(self.p)

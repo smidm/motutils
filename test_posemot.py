@@ -6,7 +6,7 @@ from utils.gt.posemot import PoseMot
 class PoseMotTestCase(unittest.TestCase):
     def setUp(self):
         self.gt = PoseMot()
-        self.gt.init_blank(range(3), range(2), n_points=3)
+        self.gt.init_blank(list(range(3)), list(range(2)), n_points=3)
         for frame in self.gt.ds.frame.values:
             for obj_id in self.gt.ds.id.values:
                 for keypoint in self.gt.ds.keypoint.values:
@@ -14,7 +14,7 @@ class PoseMotTestCase(unittest.TestCase):
                     self.gt.set_position(frame, obj_id, keypoint, val, val)
 
     def test_init_blank(self):
-        self.gt.init_blank(frames=range(4), ids=range(3), n_points=2)
+        self.gt.init_blank(frames=list(range(4)), ids=list(range(3)), n_points=2)
         self.assertTrue('x' in self.gt.ds)
         self.assertTrue('y' in self.gt.ds)
         self.assertEqual(self.gt.ds['x'].shape, (4, 3, 2))
