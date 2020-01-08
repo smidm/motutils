@@ -78,7 +78,7 @@ class Mot(object):
         df[df == -1] = np.nan
         ds = df.to_xarray()
         # ensure that all frames are in the Dataset
-        self.init_blank(range(ds.frame.min(), ds.frame.max()), ds.id)
+        self.init_blank(range(ds.frame.min().item(), ds.frame.max().item()), ds.id)
         self.ds = ds.merge(self.ds)
 
     def save(self, filename, make_backup=False):
