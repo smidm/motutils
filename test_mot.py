@@ -69,29 +69,29 @@ class MotTestCase(unittest.TestCase):
         # 1, 1, 434.48703703703706, 279.04814814814813, -1, -1, 1
         self.gt.add_delta(delta_x=-434)
         pos = self.gt.get_positions(frame=0).sel({'id': 1})
-        self.assertAlmostEqual(pos['x'], 0, 0)
-        self.assertAlmostEqual(pos['y'], 279, 0)
+        self.assertAlmostEqual(pos['x'].item(), 0, 0)
+        self.assertAlmostEqual(pos['y'].item(), 279, 0)
 
         self.gt.add_delta(delta_x=434)
         pos = self.gt.get_positions(frame=0).sel({'id': 1})
-        self.assertAlmostEqual(pos['x'], 434, 0)
-        self.assertAlmostEqual(pos['y'], 279, 0)
+        self.assertAlmostEqual(pos['x'].item(), 434, 0)
+        self.assertAlmostEqual(pos['y'].item(), 279, 0)
 
         self.gt.add_delta(delta_y=-279)
         pos = self.gt.get_positions(frame=0).sel({'id': 1})
-        self.assertAlmostEqual(pos['x'], 434, 0)
-        self.assertAlmostEqual(pos['y'], 0, 0)
+        self.assertAlmostEqual(pos['x'].item(), 434, 0)
+        self.assertAlmostEqual(pos['y'].item(), 0, 0)
 
         self.gt.add_delta(delta_y=279)
         pos = self.gt.get_positions(frame=0).sel({'id': 1})
-        self.assertAlmostEqual(pos['x'], 434, 0)
-        self.assertAlmostEqual(pos['y'], 279, 0)
+        self.assertAlmostEqual(pos['x'].item(), 434, 0)
+        self.assertAlmostEqual(pos['y'].item(), 279, 0)
 
         self.gt.add_delta(delta_frames=2)
         self.assertAlmostEqual(self.gt.min_frame(), 2)
         pos = self.gt.get_positions(frame=2).sel({'id': 1})
-        self.assertAlmostEqual(pos['x'], 434, 0)
-        self.assertAlmostEqual(pos['y'], 279, 0)
+        self.assertAlmostEqual(pos['x'].item(), 434, 0)
+        self.assertAlmostEqual(pos['y'].item(), 279, 0)
 
     def test_get_positions(self):
         frame_pos = self.gt.get_positions(1)
@@ -114,8 +114,8 @@ class MotTestCase(unittest.TestCase):
         assert_array_almost_equal(frame_pos.sel({'id': 1})[['x', 'y']].to_array(),
                                   [434.46, 280.12], 1)
 
-        self.assertAlmostEqual(frame_pos.sel({'id': 1})['x'], 434.46, 1)
-        self.assertAlmostEqual(frame_pos.sel({'id': 1})['y'], 280.12, 1)
+        self.assertAlmostEqual(frame_pos.sel({'id': 1})['x'].item(), 434.46, 1)
+        self.assertAlmostEqual(frame_pos.sel({'id': 1})['y'].item(), 280.12, 1)
 
     def test_get_xy_numpy(self):
         xy = self.gt.get_xy_numpy(0)
