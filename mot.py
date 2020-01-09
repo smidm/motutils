@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -6,6 +5,7 @@ from shapes.bbox import BBox
 import scipy.optimize
 import warnings
 from collections import Counter
+import numbers
 
 
 class Mot(object):
@@ -397,7 +397,7 @@ class GtPermutationsMixin(object):
                 new_data[self.__permutation[i]] = it
 
             return new_data
-        elif isinstance(data, int):
+        elif isinstance(data, numbers.Integral):
             return self.__permutation[data]
         else:
             return None
