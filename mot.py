@@ -263,6 +263,22 @@ class Mot(object):
         # totally inefficient, but really simple: interpolates all nans in selected ids
         return self.ds.sel({'id': ids}).interpolate_na(dim='frame', use_coordinate=True).sel({'frame': frames})
 
+    def interpolate_na(self):
+        na = self.ds[['x', 'y']].isnull()
+        assert (na.x == na.y).all(), 'nans in x and y are not consistent'
+        self.ds.confidence.data[na.x.data] = 0.1
+        self.reinterpolate()
+
+    def reinterpolate(self):
+        """
+        Interpolate positions with confidence equal 0.1 in place.
+        """
+        self.ds.x.data[self.ds.confidence == 0.1] = np.nan
+        self.ds.y.data[self.ds.confidence == 0.1] = np.nan
+
+        self.ds['x'] = self.ds.x.interpolate_na(dim='frame', use_coordinate=True)
+        self.ds['y'] = self.ds.y.interpolate_na(dim='frame', use_coordinate=True)
+
     def _get_index(self):
         return pd.MultiIndex.from_product([list(range(min(self.df.index.levels[0]), max(self.df.index.levels[0]) + 1)),
                                            list(range(1, self.num_ids + 1))], names=['frame', 'id'])
@@ -275,6 +291,9 @@ class Mot(object):
         """
         count_of_valid_ids = self.ds['x'].count('id')
         return self.ds.sel({'frame': ~count_of_valid_ids.isin([self.num_ids()])})
+
+    def get_interpolated_frames(self):
+        return self.ds.x.where(self.ds.confidence == 0.1, drop=True).frame
 
     def speed(self):
         """
