@@ -6,6 +6,7 @@ import scipy.optimize
 import warnings
 from collections import Counter
 import numbers
+import tqdm
 
 
 class Mot(object):
@@ -81,18 +82,41 @@ class Mot(object):
         self.init_blank(range(ds.frame.min().item(), ds.frame.max().item()), ds.id)
         self.ds = ds.merge(self.ds)
 
-    def save(self, filename, make_backup=False):
-        import os
-        import datetime
-
-        if make_backup and os.path.exists(filename):
-            dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            os.rename(filename, filename[:-4] + '_' + dt + '.txt')
-
+    def save(self, filename, float_precision=1):
         df = self.ds.to_dataframe().reset_index()
         df[df.isna()] = -1
         df['frame'] += 1
-        df.to_csv(filename, index=False)
+        df.to_csv(filename, index=False, float_format='%.' + str(float_precision) + 'f')
+
+    def save_via_json(self, filename, video_filename, fps, description=None):
+        from . import via
+        import json
+        json_out = via.via_json(video_filename, description)
+        json_out['attribute'] = {1: via.attribute('locations', 'FILE1_Z2_XY0', 'TEXT'),
+                                 2: via.attribute('missing', 'FILE1_Z2_XY0', 'TEXT'),
+                                 3: via.attribute('id', 'FILE1_Z1_XY1', 'RADIO',
+                                                  options=range(self.num_ids()))}
+        for frame in tqdm.tqdm(range(self.min_frame(), self.max_frame() + 1)):
+            for obj_id, row in self.get_positions_dataframe(frame).iterrows():
+                if np.isnan(row['x']) or np.isnan(row['y']):
+                    continue
+                json_out['metadata'].update((via.metadata(round(frame * 1/fps, 5), 'POINT',
+                                                          [round(x, 2) for x in row[['x', 'y']]],
+                                                          {'2': str(obj_id)}),))
+        # for frame in self.get_missing_positions().frame.values:
+        #     json_out['metadata'].update((via.metadata((round(frame * 1/fps, 5), round((frame + 2) * 1/fps, 5))),))
+
+        pos = self.get_missing_positions()
+        for frame in pos.frame.values:
+            pos_frame = pos.sel({'frame': frame})
+            for i in pos_frame.id.values:
+                json_out['metadata'].update(
+                    (via.metadata((round(frame * 1 / fps, 5), round((frame + 2) * 1 / fps, 5)),
+                                  attributes={'2': str(i)}),))
+
+        with open(filename, 'w') as fw:
+            json.dump(json_out, fw)
+
 
     def print_statistics(self):
         print('counts of number of object ids in frames:')
@@ -250,7 +274,15 @@ class Mot(object):
         :return: DataFrame with frame and id columns
         """
         count_of_valid_ids = self.ds['x'].count('id')
-        return self.ds.sel({'frame': ~count_of_valid_ids.isin([5])})
+        return self.ds.sel({'frame': ~count_of_valid_ids.isin([self.num_ids()])})
+
+    def speed(self):
+        """
+        Return object speed on frame basis.
+
+        :return: distance travelled between frames; xarray.Dataset, coordinates: frame, id
+        """
+        return np.sqrt(self.ds.x.diff('frame') ** 2 + self.ds.y.diff('frame') ** 2)
 
     def draw(self, frames=None, ids=None, marker=None):
         import matplotlib.pylab as plt
