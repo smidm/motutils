@@ -37,14 +37,28 @@ class Mot(object):
         self.bbox_match_minimal_iou = 0.5
 
         # see draw_frame()
+        self.marker_radius = 8
         self.marker_position = None
         self.markers = None
+        self.colors = None
 
         if filename is not None:
             self.load(filename)
 
         super(Mot, self).__init__(**kwds)  # this calls potential mixin classes init methods
                                     # see https://stackoverflow.com/a/6099026/322468
+
+    @classmethod
+    def from_df(cls, df):
+        assert 'frame' in df
+        assert 'id' in df
+        assert 'x' in df
+        assert 'y' in df
+        mot = cls()
+        mot.ds = df.set_index(['frame', 'id']).to_xarray()
+        if 'confidence' not in mot.ds:
+            mot.ds['confidence'] = ('frame', 'id'), np.ones_like(mot.ds['x']) * -1
+        return mot
 
     def init_blank(self, frames, ids):
         """
@@ -82,11 +96,14 @@ class Mot(object):
         self.init_blank(range(ds.frame.min().item(), ds.frame.max().item()), ds.id)
         self.ds = ds.merge(self.ds)
 
-    def save(self, filename, float_precision=1):
+    def to_dataframe(self):
         df = self.ds.to_dataframe().reset_index()
         df[df.isna()] = -1
         df['frame'] += 1
-        df.to_csv(filename, index=False, float_format='%.' + str(float_precision) + 'f')
+        return df
+
+    def save(self, filename, float_precision=1):
+        self.to_dataframe().to_csv(filename, index=False, float_format='%.' + str(float_precision) + 'f')
 
     def save_via_json(self, filename, video_filename, fps, description=None):
         from . import via
@@ -116,7 +133,6 @@ class Mot(object):
 
         with open(filename, 'w') as fw:
             json.dump(json_out, fw)
-
 
     def print_statistics(self):
         print('counts of number of object ids in frames:')
@@ -283,6 +299,14 @@ class Mot(object):
         return pd.MultiIndex.from_product([list(range(min(self.df.index.levels[0]), max(self.df.index.levels[0]) + 1)),
                                            list(range(1, self.num_ids + 1))], names=['frame', 'id'])
 
+    def count_all(self):
+        return np.product(self.ds['x'].shape)
+
+    def count_missing(self):
+        num_missing_x = self.ds['x'].isnull().sum()
+        assert num_missing_x == self.ds['y'].isnull().sum()
+        return int(num_missing_x)
+
     def get_missing_positions(self):
         """
         Return frame and id pairs that are not defined in the ground truth.
@@ -312,25 +336,26 @@ class Mot(object):
         if ids is None:
             ids = self.ds['id'].values
         for obj_id in ids:
-            pos = self.ds.sel({'frame': frames, 'id': obj_id})
+            pos = self.ds.sel({'frame': frames, 'id': obj_id, 'keypoint': 0 })
             if not pos['x'].isnull().all() and not pos['y'].isnull().all():
                 plt.plot(pos['x'], pos['y'], label=obj_id, marker=marker)
 
-    def _init_draw(self, marker_radius=10):
+    def _init_draw(self):
         import matplotlib.pylab as plt
         from moviepy.video.tools.drawing import circle
-        cm = plt.get_cmap('gist_rainbow')
-        self.colors = dict(list(zip(self.ds.id.data,
-                               [cm(1. * i / len(self.ds.id), bytes=True)[:3] for i in range(len(self.ds.id))])))
+        if self.colors is None:
+            cm = plt.get_cmap('gist_rainbow')
+            self.colors = dict(list(zip(self.ds.id.data,
+                                   [cm(1. * i / len(self.ds.id), bytes=True)[:3] for i in range(len(self.ds.id))])))
 
-        blur = marker_radius * 0.2
-        img_dim = marker_radius * 2 + 1
+        blur = self.marker_radius * 0.2
+        img_dim = self.marker_radius * 2 + 1
         img_size = (img_dim, img_dim)
-        self.marker_position = (marker_radius, marker_radius)
+        self.marker_position = (self.marker_radius, self.marker_radius)
         self.markers = {}
         for obj_id, c in list(self.colors.items()):
-            img = circle(img_size, self.marker_position, marker_radius, c, blur=blur)
-            mask = circle(img_size, self.marker_position, marker_radius, 1, blur=blur)
+            img = circle(img_size, self.marker_position, self.marker_radius, c, blur=blur)
+            mask = circle(img_size, self.marker_position, self.marker_radius, 1, blur=blur)
             self.markers[obj_id] = {'img': img, 'mask': mask}
 
     def draw_frame(self, img, frame, mapping=None):
