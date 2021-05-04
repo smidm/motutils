@@ -8,7 +8,7 @@ from itertools import product
 
 class PoseMot(Mot):
     def __init__(self, **kwargs):
-        super(PoseMot, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def init_blank(self, frames, ids, n_points=1):
         """
@@ -58,6 +58,12 @@ class PoseMot(Mot):
 
     # def isnan(self, frame, obj_id):
     #     return bool(np.isnan(self.ds.sel(dict(frame=frmae, id=obj_id))['x']).all())
+
+    def to_dataframe(self):
+        df = self.ds.to_dataframe().reset_index()
+        df[df.isna()] = -1
+        df['frame'] += 1
+        return df
 
     def get_bboxes(self, frame):
         """
@@ -113,20 +119,27 @@ class PoseMot(Mot):
         else:
             return None
 
-    def draw_frame(self, img, frame, mapping=None):
+    def draw_frame(self, img, frame, mapping=None, keypoints=None, alternative_marker=False):
         from moviepy.video.tools.drawing import blit
+        if keypoints is None:
+            keypoints = self.ds.keypoint.data
         if frame in self.ds.frame:
             if self.markers is None or self.marker_position is None:
-                self._init_draw(marker_radius=3)
+                self._init_draw()
             if mapping is None:
                 mapping = dict(list(zip(self.ds.id.data, self.ds.id.data)))
-            for obj_id, keypoint_id in product(self.ds.id.data, self.ds.keypoint.data):
+            for obj_id, keypoint_id in product(self.ds.id.data, keypoints):
                 row = self.ds.sel(dict(frame=frame, id=obj_id, keypoint=keypoint_id))
                 if not (np.isnan(row.x) or np.isnan(row.y)):
-                    marker = self.markers[mapping[obj_id]]
-                    img = blit(marker['img'], img, (int(row.x) - self.marker_position[0],
-                                                    int(row.y) - self.marker_position[1]),
-                               mask=marker['mask'])
+                    if not alternative_marker:
+                        marker = self.markers[mapping[obj_id]]
+                        img = blit(marker['img'], img, (int(row.x) - self.marker_position[0],
+                                                        int(row.y) - self.marker_position[1]),
+                                   mask=marker['mask'])
+                    else:
+                        import cv2
+                        cv2.circle(img, (int(row.x), int(row.y)), int(round(self.marker_radius * 1.5)),
+                                   [int(c) for c in self.colors[mapping[obj_id]]], 2, cv2.LINE_AA)
         return img
 
     def get_object_distance(self, frame, obj_id, other):
