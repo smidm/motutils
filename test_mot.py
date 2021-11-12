@@ -45,8 +45,8 @@ class MotTestCase(unittest.TestCase):
 
     def test_load(self):
         ds = self.gt.ds
-        self.assertEqual(len(ds['frame']), 5928)
-        self.assertTrue(np.all(ds['frame'][[0, -1]] == (0, 5927)))
+        self.assertEqual(len(ds['frame']), 4500)
+        self.assertTrue(np.all(ds['frame'][[0, -1]] == (0, 4499)))
         self.assertEqual(len(ds['id']), 5)
 
     def test_save(self):
@@ -206,8 +206,9 @@ class MotTestCase(unittest.TestCase):
         print(ret)
 
     def test_interpolate_positions(self):
+        # check dimensions of interpolated arrays
         ds = self.gt.interpolate_positions()
-        self.assertEqual(len(ds['frame']), 5928)
+        self.assertEqual(len(ds['frame']), 4500)
         self.assertEqual(len(ds['id']), 5)
 
         ds = self.gt.interpolate_positions(frames=[0, 1, 2, 3])
@@ -215,13 +216,14 @@ class MotTestCase(unittest.TestCase):
         self.assertEqual(len(ds['id']), 5)
 
         ds = self.gt.interpolate_positions(ids=[1, 4])
-        self.assertEqual(len(ds['frame']), 5928)
+        self.assertEqual(len(ds['frame']), 4500)
         self.assertEqual(len(ds['id']), 2)
 
         ds = self.gt.interpolate_positions(frames=[0, 1], ids=[1, 2, 3])
         self.assertEqual(len(ds['frame']), 2)
         self.assertEqual(len(ds['id']), 3)
 
+        # check interpolated values
         self.gt.set_position(10, 1, 10, 10)
         self.gt.set_position(11, 1, np.nan, np.nan)
         self.gt.set_position(12, 1, 20, 30)
