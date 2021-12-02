@@ -335,8 +335,9 @@ class Mot(object):
             marker = 'o'
         if ids is None:
             ids = self.ds['id'].values
+
         for obj_id in ids:
-            pos = self.ds.sel({'frame': frames, 'id': obj_id, 'keypoint': 0 })
+            pos = self.ds.sel({'frame': frames, 'id': obj_id})
             if not pos['x'].isnull().all() and not pos['y'].isnull().all():
                 plt.plot(pos['x'], pos['y'], label=obj_id, marker=marker)
 
