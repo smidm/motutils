@@ -7,6 +7,10 @@ Multi object tracking results and ground truth
 
 For more help run this file as a script with --help parameter.
 
+PyCharm debugger could have problems debugging inside this module due to a bug:
+https://stackoverflow.com/questions/47988936/debug-properly-with-pycharm-module-named-io-py
+workaround: rename the file temporarily
+
 TODO: merge with utils.gt.gt
 """
 import pandas as pd
@@ -131,7 +135,7 @@ def load_toxtrac(filename, topleft_xy=(0, 0)):
     return df
 
 
-def load_posemot_sleap(filename, num_objects=None):
+def load_posemot_sleap_analysis(filename, num_objects=None):
     """
 
     :param filename:
@@ -141,7 +145,12 @@ def load_posemot_sleap(filename, num_objects=None):
     import h5py
     f = h5py.File(filename, 'r')
     # occupancy_matrix = f['track_occupancy'][:]
-    tracks_matrix = f['tracks'][:]
+    try:
+        tracks_matrix = f['tracks'][:]
+    except KeyError:
+        print(f'File {filename} doesn\'t appear to be SLEAP "analysis" file.\n'
+              f'Export analysis from sleap-label using File -> Export Analysis HDF5.\n')
+        raise
 
     if num_objects is None:
         num_objects = f['tracks'].shape[0]
@@ -153,6 +162,9 @@ def load_posemot_sleap(filename, num_objects=None):
     mot.marker_radius = 8
     return mot
 
+def load_posemot_sleap(filename, num_objects=None):
+    import sleap
+    # TODO
 
 def save_mot(filename, df):
     df.to_csv(filename, index=False)  # header=False,
@@ -270,7 +282,8 @@ if __name__ == '__main__':
     parser.add_argument('--tox-topleft-xy', nargs='+', type=int, help='position of the arena top left corner, see first tuple in the Arena line in Stats_1.txt')
     parser.add_argument('--load-idtracker', type=str, help='load IdTracker trajectories (e.g., trajectories.txt)')
     parser.add_argument('--load-idtrackerai', type=str, help='load idtracker.ai trajectories (e.g., trajectories_wo_gaps.npy)')
-    parser.add_argument('--load-sleap', type=str, help='load SLEAP anakysis trajectories (e.g., project.analysis.h5)')
+    parser.add_argument('--load-sleap-analysis', type=str,
+                        help='load SLEAP analysis trajectories (exported from sleap-label File -> Export Analysis HDF5)')
     parser.add_argument('--load-mot', type=str, nargs='+', help='load a MOT challenge csv file(s)')
     parser.add_argument('--load-gt', type=str, help='load ground truth from a MOT challenge csv file')
     parser.add_argument('--video-in', type=str, help='input video file')
@@ -278,6 +291,7 @@ if __name__ == '__main__':
     parser.add_argument('--write-mot', type=str, help='write trajectories to a MOT challenge csv file')
     parser.add_argument('--eval', action='store_true', help='evaluate results')
     parser.add_argument('--write-eval', type=str, help='write evaluation results as a csv file')
+    # parser.add_argument('--mot_keypoint_idx', type=int, help='keypoint of ')
     parser.add_argument('--input-names', type=str, nargs='+', help='names of input MOT files')
     args = parser.parse_args()
 
@@ -289,8 +303,8 @@ if __name__ == '__main__':
         dfs = [load_idtracker(args.load_idtracker)]
     elif args.load_idtrackerai:
         dfs = [load_idtrackerai(args.load_idtrackerai)]
-    elif args.load_sleap:
-        dfs = [load_posemot_sleap(args.load_sleap).to_dataframe()]
+    elif args.load_sleap_analysis:
+        dfs = [load_posemot_sleap_analysis(args.load_sleap_analysis).to_dataframe()]
     elif args.load_mot:
         dfs = [load_mot(mot) for mot in args.load_mot]
     else:
@@ -307,5 +321,5 @@ if __name__ == '__main__':
 
     if args.video_out:
         assert args.video_in
-        assert False, ''
+        # assert False, ''
         visualize(args.video_in, args.video_out, dfs, args.input_names)  # , duration=3)
