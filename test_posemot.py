@@ -103,19 +103,27 @@ class PoseMotTestCase(unittest.TestCase):
         match = self.gt.match_xy(0, xy, max_match_distance_px=0.9)
         self.assertEqual(match, None)
 
-    # def test_draw(self):
-    #     import matplotlib.pylab as plt
-    #     self.gt.draw(frames=[0])
-    #     plt.legend()
-    #     plt.show()
-    #
-    #     self.gt.draw(frames=[0], ids=[0])
-    #     plt.legend()
-    #     plt.show()
-    #
-    #     self.gt.draw()
-    #     plt.legend()
-    #     plt.show()
+    def test_draw(self, interactive=False):
+        import matplotlib.pylab as plt
+        self.gt.draw(frames=[0])
+        if interactive:
+            plt.legend()
+            plt.show()
+
+        self.gt.draw(frames=[0], ids=[0])
+        if interactive:
+            plt.legend()
+            plt.show()
+
+        self.gt.draw()
+        if interactive:
+            plt.legend()
+            plt.show()
+
+        self.gt.draw(frames=[0], ids=[0], keypoint=1)
+        if interactive:
+            plt.legend()
+            plt.show()
 
 
 if __name__ == '__main__':
