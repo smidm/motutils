@@ -342,7 +342,23 @@ class Mot(object):
 
     def _init_draw(self):
         import matplotlib.pylab as plt
-        from moviepy.video.tools.drawing import circle
+        # from moviepy.video.tools.drawing import circle
+
+        # https://github.com/Zulko/moviepy/issues/1662
+        from moviepy.video.tools.drawing import color_gradient
+
+        def circle(screensize, center, radius, col1=1.0, col2=0, blur=1):
+            """ Draw an image with a circle.
+
+            Draws a circle of color ``col1``, on a background of color ``col2``,
+            on a screen of size ``screensize`` at the position ``center=(x,y)``,
+            with a radius ``radius`` but slightly blurred on the border by ``blur``
+            pixels
+            """
+            offset = 1.0*(radius-blur)/radius if radius else 0
+            return color_gradient(screensize,p1=center,r=radius, col1=col1,
+                                  col2=col2, shape='radial', offset=offset, vector=[1])
+
         if self.colors is None:
             cm = plt.get_cmap('gist_rainbow')
             self.colors = dict(list(zip(self.ds.id.data,
