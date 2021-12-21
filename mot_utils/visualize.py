@@ -4,7 +4,7 @@ from moviepy.video.VideoClip import ColorClip, TextClip
 from moviepy.video.fx.resize import resize
 import numpy as np
 import cv2  # TODO: remove dependency
-from utils.gt.mot import Mot
+from .mot import Mot
 
 
 def process_image(get_frame_fun, t, trajectories, name, id_to_gt, fps):
@@ -67,7 +67,6 @@ def process_image_behavior(get_frame_fun, t, mot, trapezoids, fronts, contacts, 
                     cv2.FONT_HERSHEY_SIMPLEX, font_size, (255, 255, 255), font_thickness)
     cv2.putText(img, str(frame), (30, 30), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
     return img
-
 
 
 def limit_size(wh, max_wh):

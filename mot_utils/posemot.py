@@ -2,7 +2,7 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from shapes.bbox import BBox
-from utils.gt.mot import Mot
+from .mot import Mot
 from itertools import product
 
 

@@ -1,4 +1,4 @@
-from utils.gt.mot import Mot
+from .mot import Mot
 import numpy as np
 import pandas as pd
 import xarray as xr

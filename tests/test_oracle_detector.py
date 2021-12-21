@@ -1,9 +1,8 @@
 import unittest
-from utils.gt.mot import Mot
-from utils.gt.oracle_detector import OracleDetectorMixin
+import mot_utils
 
 
-class OracleDetector(OracleDetectorMixin, Mot):
+class OracleDetector(mot_utils.OracleDetectorMixin, mot_utils.Mot):
     pass
 
 

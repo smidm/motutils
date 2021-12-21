@@ -1,12 +1,9 @@
 import unittest
-from utils.gt.mot import Mot
-from utils.gt.oracle_detector import OracleDetectorMixin
-from utils.gt.mot_project import MotProjectMixin
-# import numpy as np
 import os
+import mot_utils
 
 
-class OracleDetector(MotProjectMixin, OracleDetectorMixin, Mot):
+class OracleDetector(mot_utils.OracleDetectorMixin, mot_utils.Mot):
     pass
 
 

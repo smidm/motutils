@@ -18,10 +18,10 @@ import numpy as np
 import sys
 import warnings
 import scipy.optimize
-from utils.gt.visualize import visualize
-from utils.gt.mot import Mot
-from utils.gt.posemot import PoseMot
-from utils.gt.bbox_mot import BboxMot
+from .visualize import visualize
+from .mot import Mot
+from .posemot import PoseMot
+from .bbox_mot import BboxMot
 
 metrics_higher_is_better = ['idf1', 'idp', 'idr', 'recall', 'precision','mota']
 metrics_lower_is_better = ['num_false_positives', 'num_misses', 'num_switches', 'num_fragmentations', 'motp', 'motp_px']
@@ -166,8 +166,10 @@ def load_posemot_sleap(filename, num_objects=None):
     import sleap
     # TODO
 
+
 def save_mot(filename, df):
     df.to_csv(filename, index=False)  # header=False,
+
 
 def load_mot(filename):
     """

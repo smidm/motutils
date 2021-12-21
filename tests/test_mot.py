@@ -5,6 +5,7 @@ import utils.gt.mot
 from shapes.bbox import BBox
 import io
 import xarray
+import mot_utils
 
 
 class MotTestCase(unittest.TestCase):
@@ -37,7 +38,7 @@ class MotTestCase(unittest.TestCase):
         5,4,180.0,430.0,-1,-1,1
         ...
         """
-        self.gt = utils.gt.mot.Mot(self.filename)
+        self.gt = mot_utils.Mot(self.filename)
 
     def test_init_blank(self):
         self.gt.init_blank(list(range(0, 101)), list(range(1, 6)))
@@ -104,7 +105,7 @@ class MotTestCase(unittest.TestCase):
         Data variables:
             x           (id) float64 434.5 278.2 179.2 180.0 155.2
             y           (id) float64 280.1 293.7 407.9 430.0 396.3
-            confidence  (id) float64 1.0 1.0 1.0 1.0 1.0        
+            confidence  (id) float64 1.0 1.0 1.0 1.0 1.0
         """
         assert_array_almost_equal(frame_pos['x'],
                                   [434.46, 278.15, 179.22, 180.0, 155.18], 1)
@@ -125,12 +126,12 @@ class MotTestCase(unittest.TestCase):
         df = self.gt.get_positions_dataframe(1)
         """
             frame           x           y  width  height  confidence
-        id                                                          
+        id
         1       1  434.466790  280.125461    NaN     NaN         1.0
         2       1  278.154723  293.662866    NaN     NaN         1.0
         3       1  179.220687  407.880315    NaN     NaN         1.0
         4       1  180.000000  430.000000    NaN     NaN         1.0
-        5       1  155.188525  396.309836    NaN     NaN         1.0        
+        5       1  155.188525  396.309836    NaN     NaN         1.0
         """
         self.assertAlmostEqual(df.loc[1].x, 434.46, 1)
         self.assertAlmostEqual(df.loc[1].y, 280.12, 1)
@@ -252,7 +253,7 @@ class MotTestCase(unittest.TestCase):
                 2,5,155.18852459016392,396.3098360655738,-1,-1,1
         """
         csv_file = io.StringIO(csv_str)
-        other = utils.gt.mot.Mot(csv_file)
+        other = mot_utils.Mot(csv_file)
         mapping = self.gt.find_mapping(other)
         self.assertEqual(mapping, {1: 2, 2: 1, 3: 3, 4: 4, 5: 5})
 
