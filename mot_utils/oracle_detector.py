@@ -1,4 +1,4 @@
-from shapes.bbox import BBox
+from shapes import BBox
 import numpy as np
 
 

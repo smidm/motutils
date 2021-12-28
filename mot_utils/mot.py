@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-from shapes.bbox import BBox
+from shapes import BBox
 import scipy.optimize
 import warnings
 from collections import Counter

@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 import pandas as pd
-from shapes.bbox import BBox
+from shapes import BBox
 from .mot import Mot
 from itertools import product
 

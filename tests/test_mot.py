@@ -1,8 +1,7 @@
 import unittest
 from numpy.testing import assert_array_almost_equal
 import numpy as np
-import utils.gt.mot
-from shapes.bbox import BBox
+from shapes import BBox
 import io
 import xarray
 import mot_utils

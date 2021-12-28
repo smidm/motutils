@@ -168,7 +168,7 @@ def visualize(video_file, out_video_file, funs, names=None,
 
 
 if __name__ == '__main__':
-    import utils.gt.io as io
+    from .io import load_toxtrac, load_idtracker, load_idtrackerai, load_any_mot
     import argparse
 
     parser = argparse.ArgumentParser(description='Visualize mot trajectories.')
@@ -188,16 +188,16 @@ if __name__ == '__main__':
             parser.error('specify position of the arena top left corner using --tox-topleft-xy')
         if len(args.tox_topleft_xy) != 2:
             parser.error('need to pass exactly two values with --tox-topleft-xy')
-        mots.append(Mot.from_df(io.load_toxtrac(args.load_tox, topleft_xy=args.tox_topleft_xy)))
+        mots.append(Mot.from_df(load_toxtrac(args.load_tox, topleft_xy=args.tox_topleft_xy)))
 
     if args.load_idtracker:
-        mots.append(Mot.from_df(io.load_idtracker(args.load_idtracker)))
+        mots.append(Mot.from_df(load_idtracker(args.load_idtracker)))
 
     if args.load_idtrackerai:
-        mots.append(Mot.from_df(io.load_idtrackerai(args.load_idtrackerai)))
+        mots.append(Mot.from_df(load_idtrackerai(args.load_idtrackerai)))
 
     if args.load_mot:
-        mots.extend([io.load_any_mot(filename) for filename in args.load_mot])
+        mots.extend([load_any_mot(filename) for filename in args.load_mot])
 
     if not mots:
         parser.error('no input trajectories specified, see --load options')

@@ -2,7 +2,7 @@ from .mot import Mot
 import numpy as np
 import pandas as pd
 import xarray as xr
-from shapes.bbox import BBox
+from shapes import BBox
 import cv2
 
 
