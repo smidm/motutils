@@ -9,7 +9,7 @@ import mot_utils
 
 class MotTestCase(unittest.TestCase):
     def setUp(self):
-        self.filename = 'data/GT/Sowbug3_cut.txt'
+        self.filename = 'tests/data/Sowbug3_cut.txt'
         """
         1,1,434.48703703703706,279.04814814814813,-1,-1,1
         1,2,277.67721518987344,293.62025316455697,-1,-1,1
