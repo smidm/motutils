@@ -50,7 +50,7 @@ class MotTestCase(unittest.TestCase):
         self.assertEqual(len(ds['id']), 5)
 
     def test_save(self):
-        out_file = 'test/out/gttestcase.txt'
+        out_file = 'tests/out/gttestcase.txt'
         self.gt.save(out_file)
         # self.assertTrue(filecmp.cmp(self.filename, out_file), 'saved file differs from source file')
         # # differs is float rounding and int / float

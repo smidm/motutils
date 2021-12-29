@@ -21,7 +21,7 @@ class PoseMotTestCase(unittest.TestCase):
         self.assertEqual(self.gt.ds.sel(dict(frame=0, id=0))['x'].shape, (2,))
 
     def test_load_save(self):
-        out_file = 'test/out/gttestcase.txt'
+        out_file = 'tests/out/gttestcase.txt'
         self.gt.save(out_file)
         loaded_gt = mot_utils.PoseMot()
         loaded_gt.load(out_file)
