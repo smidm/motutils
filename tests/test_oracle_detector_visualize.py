@@ -1,9 +1,9 @@
 import unittest
 import os
-import mot_utils
+import motutils
 
 
-class OracleDetector(mot_utils.OracleDetectorMixin, mot_utils.Mot):
+class OracleDetector(motutils.OracleDetectorMixin, motutils.Mot):
     pass
 
 

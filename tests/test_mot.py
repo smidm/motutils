@@ -4,7 +4,7 @@ import numpy as np
 from shapes import BBox
 import io
 import xarray
-import mot_utils
+import motutils
 
 
 class MotTestCase(unittest.TestCase):
@@ -37,7 +37,7 @@ class MotTestCase(unittest.TestCase):
         5,4,180.0,430.0,-1,-1,1
         ...
         """
-        self.gt = mot_utils.Mot(self.filename)
+        self.gt = motutils.Mot(self.filename)
 
     def test_init_blank(self):
         self.gt.init_blank(list(range(0, 101)), list(range(1, 6)))
@@ -252,7 +252,7 @@ class MotTestCase(unittest.TestCase):
                 2,5,155.18852459016392,396.3098360655738,-1,-1,1
         """
         csv_file = io.StringIO(csv_str)
-        other = mot_utils.Mot(csv_file)
+        other = motutils.Mot(csv_file)
         mapping = self.gt.find_mapping(other)
         self.assertEqual(mapping, {1: 2, 2: 1, 3: 3, 4: 4, 5: 5})
 

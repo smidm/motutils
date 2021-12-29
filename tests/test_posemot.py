@@ -1,11 +1,11 @@
 import unittest
 import numpy as np
-import mot_utils
+import motutils
 
 
 class PoseMotTestCase(unittest.TestCase):
     def setUp(self):
-        self.gt = mot_utils.PoseMot()
+        self.gt = motutils.PoseMot()
         self.gt.init_blank(list(range(3)), list(range(2)), n_points=3)
         for frame in self.gt.ds.frame.values:
             for obj_id in self.gt.ds.id.values:
@@ -23,7 +23,7 @@ class PoseMotTestCase(unittest.TestCase):
     def test_load_save(self):
         out_file = 'tests/out/gttestcase.txt'
         self.gt.save(out_file)
-        loaded_gt = mot_utils.PoseMot()
+        loaded_gt = motutils.PoseMot()
         loaded_gt.load(out_file)
         self.assertEqual(self.gt.ds, loaded_gt.ds)
 
