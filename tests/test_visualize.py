@@ -16,4 +16,4 @@ class VisualizeTestCase(unittest.TestCase):
         mot_utils.visualize('tests/data/Sowbug3_cut.mp4',
                                      'tests/out/Sowbug3_cut_visualize_pose.mp4',
                                      [gt.draw_frame, pose_gt.draw_frame],
-                                     duration=1)
+                                     duration=0.5)
