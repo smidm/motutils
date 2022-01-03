@@ -159,4 +159,3 @@ class PoseMot(Mot):
             pos = self.ds.sel({'frame': frames, 'id': obj_id, 'keypoint': keypoint})
             if not pos['x'].isnull().all() and not pos['y'].isnull().all():
                 plt.plot(pos['x'], pos['y'], label=obj_id, marker=marker)
-

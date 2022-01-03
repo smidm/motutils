@@ -46,7 +46,7 @@ class Mot(object):
             self.load(filename)
 
         super(Mot, self).__init__(**kwds)  # this calls potential mixin classes init methods
-                                    # see https://stackoverflow.com/a/6099026/322468
+                                           # see https://stackoverflow.com/a/6099026/322468
 
     @classmethod
     def from_df(cls, df):

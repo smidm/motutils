@@ -6,7 +6,7 @@ class VisualizeTestCase(unittest.TestCase):
     def test_visualize(self):
         gt = motutils.Mot('tests/data/Sowbug3_cut.txt')
         motutils.visualize('tests/data/Sowbug3_cut.mp4',
-                                     'tests/out/Sowbug3_cut_visualize.mp4',
+                        'tests/out/Sowbug3_cut_visualize.mp4',
                            [gt.draw_frame],
                            duration=1)
 

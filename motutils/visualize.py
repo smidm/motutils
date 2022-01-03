@@ -118,16 +118,16 @@ def visualize(video_file, out_video_file, funs, names=None,
         n_clips = 1
     clip = VideoFileClip(video_file)
 
-    if names is not None:
-        assert len(names) == len(funs)
-        if 'gt' in names:
-            reference_idx = names.index('gt')
-        elif 'ground truth' in names:
-            reference_idx = names.index('ground truth')
-        else:
-            reference_idx = 0
-    else:
-        reference_idx = 0
+    # if names is not None:
+    #     assert len(names) == len(funs)
+    #     if 'gt' in names:
+    #         reference_idx = names.index('gt')
+    #     elif 'ground truth' in names:
+    #         reference_idx = names.index('ground truth')
+    #     else:
+    #         reference_idx = 0
+    # else:
+    #     reference_idx = 0
     # mappings = [t.find_mapping(trajectories[reference_idx]) for t in trajectories]
 
     clips = []

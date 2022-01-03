@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from shapes import BBox
-import cv2
 
 
 class BboxMot(Mot):

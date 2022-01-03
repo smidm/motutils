@@ -32,4 +32,3 @@ class GTDetectorTestCase(unittest.TestCase):
                                        false_detection_jitter_scale=40)
         bboxes = self.detector.detect(0)
         self.assertEqual(len(bboxes), 5)
-

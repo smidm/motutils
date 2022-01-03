@@ -12,7 +12,7 @@ class IOTestCase(unittest.TestCase):
         self.assertTrue(isinstance(gt, motutils.Mot))
 
     def test_load_posemot_sleap_analysis(self):
-        tracks = load_posemot_sleap_analysis('tests/data/sample_sleap.analysis.h5')
+        load_posemot_sleap_analysis('tests/data/sample_sleap.analysis.h5')
 
 
 if __name__ == '__main__':

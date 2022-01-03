@@ -3,7 +3,6 @@ from numpy.testing import assert_array_almost_equal
 import numpy as np
 from shapes import BBox
 import io
-import xarray
 import motutils
 
 
@@ -199,8 +198,8 @@ class MotTestCase(unittest.TestCase):
         self.assertTrue(ds is None)
 
     def test_minmax_frame(self):
-        ret = self.gt.min_frame()
-        ret = self.gt.max_frame()
+        self.assertEqual(self.gt.min_frame(), 0)
+        self.assertEqual(self.gt.max_frame(), 4499)
 
     def test_interpolate_positions(self):
         # check dimensions of interpolated arrays
@@ -229,7 +228,7 @@ class MotTestCase(unittest.TestCase):
         self.assertEqual(ds.y, 20)
 
     def test_get_missing_positions(self):
-        ret = self.gt.get_missing_positions()
+        self.gt.get_missing_positions()
 
     def test_draw(self):
         self.gt.draw([0])
@@ -253,7 +252,7 @@ class MotTestCase(unittest.TestCase):
         self.assertEqual(mapping, {1: 2, 2: 1, 3: 3, 4: 4, 5: 5})
 
     def test_get_object_distance(self):
-        dist = self.gt.get_object_distance(0, 1, self.gt.get_object(10, 1))
+        self.gt.get_object_distance(0, 1, self.gt.get_object(10, 1))
 
 
 if __name__ == '__main__':
