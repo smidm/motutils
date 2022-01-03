@@ -1,8 +1,9 @@
-from .mot import Mot
 import numpy as np
 import pandas as pd
 import xarray as xr
 from shapes import BBox
+
+from .mot import Mot
 
 
 class BboxMot(Mot):
@@ -33,13 +34,19 @@ class BboxMot(Mot):
         :param frames: list of frames
         :param ids: list of identities
         """
-        self.ds = xr.Dataset(data_vars={'x': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
-                                        'y': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
-                                        'width': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
-                                        'height': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
-                                        'confidence': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
-                                        },
-                             coords={'frame': frames, 'id': ids})
+        self.ds = xr.Dataset(
+            data_vars={
+                "x": (["frame", "id"], np.nan * np.ones((len(frames), len(ids)))),
+                "y": (["frame", "id"], np.nan * np.ones((len(frames), len(ids)))),
+                "width": (["frame", "id"], np.nan * np.ones((len(frames), len(ids)))),
+                "height": (["frame", "id"], np.nan * np.ones((len(frames), len(ids)))),
+                "confidence": (
+                    ["frame", "id"],
+                    np.nan * np.ones((len(frames), len(ids))),
+                ),
+            },
+            coords={"frame": frames, "id": ids},
+        )
 
     def load(self, filename):
         """
@@ -51,9 +58,12 @@ class BboxMot(Mot):
 
         :param filename: mot filename or buffer
         """
-        df = pd.read_csv(filename, index_col=['frame', 'id'],
-                         names=['frame', 'id', 'x', 'y', 'width', 'height', 'confidence'],
-                         converters={'frame': lambda x: int(x) - 1})
+        df = pd.read_csv(
+            filename,
+            index_col=["frame", "id"],
+            names=["frame", "id", "x", "y", "width", "height", "confidence"],
+            converters={"frame": lambda x: int(x) - 1},
+        )
         df[df == -1] = np.nan
         ds = df.to_xarray()
         # ensure that all frames are in the Dataset
@@ -61,16 +71,16 @@ class BboxMot(Mot):
         self.ds = ds.merge(self.ds)
 
     def save(self, filename, make_backup=False):
-        import os
         import datetime
+        import os
 
         if make_backup and os.path.exists(filename):
             dt = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            os.rename(filename, filename[:-4] + '_' + dt + '.txt')
+            os.rename(filename, filename[:-4] + "_" + dt + ".txt")
 
         df = self.ds.to_dataframe().reset_index()
         df[df.isna()] = -1
-        df['frame'] += 1
+        df["frame"] += 1
         df.to_csv(filename, index=False, header=False)
 
     def get_bboxes(self, frame):
@@ -84,8 +94,12 @@ class BboxMot(Mot):
         """
         bboxes = []
         for obj_id, obj in self.get_positions_dataframe(frame).iterrows():
-            if not (np.isnan(obj.x) or np.isnan(obj.y) or
-                    np.isnan(obj.width) or np.isnan(obj.height)):
+            if not (
+                np.isnan(obj.x)
+                or np.isnan(obj.y)
+                or np.isnan(obj.width)
+                or np.isnan(obj.height)
+            ):
                 bbox = BBox.from_xywh(obj.x, obj.y, obj.width, obj.height, frame)
                 bbox.obj_id = obj_id
                 bboxes.append(bbox)
@@ -99,7 +113,7 @@ class BboxMot(Mot):
         :param other:
         :return:
         """
-        assert False, 'not implemented'
+        assert False, "not implemented"
 
     def draw_frame(self, img, frame, mapping=None):
         """
@@ -118,5 +132,3 @@ class BboxMot(Mot):
             for bbox in self.get_bboxes(frame):
                 bbox.draw_to_image(img, color=self.colors[mapping[bbox.obj_id]])
         return img
-
-

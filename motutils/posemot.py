@@ -1,9 +1,11 @@
-import numpy as np
-import xarray as xr
-import pandas as pd
-from shapes import BBox
-from .mot import Mot
 from itertools import product
+
+import numpy as np
+import pandas as pd
+import xarray as xr
+from shapes import BBox
+
+from .mot import Mot
 
 
 class PoseMot(Mot):
@@ -19,11 +21,24 @@ class PoseMot(Mot):
         :param n_points: number of points per object
         """
         assert n_points > 0
-        data = {'x': (['frame', 'id', 'keypoint'], np.nan * np.ones((len(frames), len(ids), n_points))),
-                'y': (['frame', 'id', 'keypoint'], np.nan * np.ones((len(frames), len(ids), n_points))),
-                'confidence': (['frame', 'id', 'keypoint'], np.nan * np.ones((len(frames), len(ids), n_points))),
-                }
-        self.ds = xr.Dataset(data_vars=data, coords={'frame': frames, 'id': ids, 'keypoint': list(range(n_points))})
+        data = {
+            "x": (
+                ["frame", "id", "keypoint"],
+                np.nan * np.ones((len(frames), len(ids), n_points)),
+            ),
+            "y": (
+                ["frame", "id", "keypoint"],
+                np.nan * np.ones((len(frames), len(ids), n_points)),
+            ),
+            "confidence": (
+                ["frame", "id", "keypoint"],
+                np.nan * np.ones((len(frames), len(ids), n_points)),
+            ),
+        }
+        self.ds = xr.Dataset(
+            data_vars=data,
+            coords={"frame": frames, "id": ids, "keypoint": list(range(n_points))},
+        )
 
     # def load(self, filename):
     #     pass
@@ -37,12 +52,17 @@ class PoseMot(Mot):
     #     return self.get_positions(frame)[['x', 'y']].to_array().values.T
 
     def load(self, filename):
-        df = pd.read_csv(filename, index_col=['frame', 'id', 'keypoint'],
-                         converters={'frame': lambda x: int(x) - 1})
+        df = pd.read_csv(
+            filename,
+            index_col=["frame", "id", "keypoint"],
+            converters={"frame": lambda x: int(x) - 1},
+        )
         df[df == -1] = np.nan
         ds = df.to_xarray()
         # ensure that all frames are in the Dataset
-        self.init_blank(range(ds.frame.min().item(), ds.frame.max().item()), ds.id, len(ds.keypoint))
+        self.init_blank(
+            range(ds.frame.min().item(), ds.frame.max().item()), ds.id, len(ds.keypoint)
+        )
         self.ds = ds.merge(self.ds)
 
     def get_obj_roi(self, frame, obj_id):
@@ -54,7 +74,10 @@ class PoseMot(Mot):
         :return: xmin, xmax, ymin, ymax
         """
         obj = self.ds.sel(dict(frame=frame, id=obj_id))
-        return [float(val) for val in [obj['x'].min(), obj['x'].max(), obj['y'].min(), obj['y'].max()]]
+        return [
+            float(val)
+            for val in [obj["x"].min(), obj["x"].max(), obj["y"].min(), obj["y"].max()]
+        ]
 
     # def isnan(self, frame, obj_id):
     #     return bool(np.isnan(self.ds.sel(dict(frame=frmae, id=obj_id))['x']).all())
@@ -62,7 +85,7 @@ class PoseMot(Mot):
     def to_dataframe(self):
         df = self.ds.to_dataframe().reset_index()
         df[df.isna()] = -1
-        df['frame'] += 1
+        df["frame"] += 1
         return df
 
     def get_bboxes(self, frame):
@@ -94,9 +117,11 @@ class PoseMot(Mot):
         :param confidence: object position confidence
         :param kwargs: 'x1', 'y1', 'x2', 'y2', ... xy positions for further points
         """
-        self.ds['confidence'].loc[{'frame': frame, 'id': obj_id, 'keypoint': keypoint}] = confidence
-        self.ds['x'].loc[{'frame': frame, 'id': obj_id, 'keypoint': keypoint}] = x
-        self.ds['y'].loc[{'frame': frame, 'id': obj_id, 'keypoint': keypoint}] = y
+        self.ds["confidence"].loc[
+            {"frame": frame, "id": obj_id, "keypoint": keypoint}
+        ] = confidence
+        self.ds["x"].loc[{"frame": frame, "id": obj_id, "keypoint": keypoint}] = x
+        self.ds["y"].loc[{"frame": frame, "id": obj_id, "keypoint": keypoint}] = y
 
     # def set_object_position(self, frame, obj_id, xys, confidence=1.0):
 
@@ -110,17 +135,24 @@ class PoseMot(Mot):
         :return: None if false positive, best matching gt row
         """
         # <xarray.DataArray ([x, y], id, keypoint)>
-        xy_diff_sq = ((self.ds.sel(dict(frame=frame))[['x', 'y']] - xy.T) ** 2).to_array()
+        xy_diff_sq = (
+            (self.ds.sel(dict(frame=frame))[["x", "y"]] - xy.T) ** 2
+        ).to_array()
 
-        matching_id = xy_diff_sq.sum(['keypoint', 'variable']).argmin(dim='id')
-        if max_match_distance_px is None or \
-            all(np.sqrt(xy_diff_sq.sel(dict(id=matching_id)).sum('variable')) <= max_match_distance_px):
-            return self.ds.sel({'frame': frame, 'id': matching_id})
+        matching_id = xy_diff_sq.sum(["keypoint", "variable"]).argmin(dim="id")
+        if max_match_distance_px is None or all(
+            np.sqrt(xy_diff_sq.sel(dict(id=matching_id)).sum("variable"))
+            <= max_match_distance_px
+        ):
+            return self.ds.sel({"frame": frame, "id": matching_id})
         else:
             return None
 
-    def draw_frame(self, img, frame, mapping=None, keypoints=None, alternative_marker=False):
+    def draw_frame(
+        self, img, frame, mapping=None, keypoints=None, alternative_marker=False
+    ):
         from moviepy.video.tools.drawing import blit
+
         if keypoints is None:
             keypoints = self.ds.keypoint.data
         if frame in self.ds.frame:
@@ -133,29 +165,45 @@ class PoseMot(Mot):
                 if not (np.isnan(row.x) or np.isnan(row.y)):
                     if not alternative_marker:
                         marker = self.markers[mapping[obj_id]]
-                        img = blit(marker['img'], img, (int(row.x) - self.marker_position[0],
-                                                        int(row.y) - self.marker_position[1]),
-                                   mask=marker['mask'])
+                        img = blit(
+                            marker["img"],
+                            img,
+                            (
+                                int(row.x) - self.marker_position[0],
+                                int(row.y) - self.marker_position[1],
+                            ),
+                            mask=marker["mask"],
+                        )
                     else:
                         import cv2
-                        cv2.circle(img, (int(row.x), int(row.y)), int(round(self.marker_radius * 1.5)),
-                                   [int(c) for c in self.colors[mapping[obj_id]]], 2, cv2.LINE_AA)
+
+                        cv2.circle(
+                            img,
+                            (int(row.x), int(row.y)),
+                            int(round(self.marker_radius * 1.5)),
+                            [int(c) for c in self.colors[mapping[obj_id]]],
+                            2,
+                            cv2.LINE_AA,
+                        )
         return img
 
     def get_object_distance(self, frame, obj_id, other):
         self_pos = self.get_object(frame, obj_id)
-        return np.sqrt(((self_pos[['x', 'y']] - other[['x', 'y']]).to_array() ** 2).sum())
+        return np.sqrt(
+            ((self_pos[["x", "y"]] - other[["x", "y"]]).to_array() ** 2).sum()
+        )
 
     def draw(self, frames=None, ids=None, marker=None, keypoint=0):
         import matplotlib.pylab as plt
+
         if frames is None:
-            frames = self.ds['frame'].values
+            frames = self.ds["frame"].values
         if len(frames) == 1 and marker is None:
-            marker = 'o'
+            marker = "o"
         if ids is None:
-            ids = self.ds['id'].values
+            ids = self.ds["id"].values
 
         for obj_id in ids:
-            pos = self.ds.sel({'frame': frames, 'id': obj_id, 'keypoint': keypoint})
-            if not pos['x'].isnull().all() and not pos['y'].isnull().all():
-                plt.plot(pos['x'], pos['y'], label=obj_id, marker=marker)
+            pos = self.ds.sel({"frame": frames, "id": obj_id, "keypoint": keypoint})
+            if not pos["x"].isnull().all() and not pos["y"].isnull().all():
+                plt.plot(pos["x"], pos["y"], label=obj_id, marker=marker)

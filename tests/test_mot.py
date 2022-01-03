@@ -1,8 +1,10 @@
-import unittest
-from numpy.testing import assert_array_almost_equal
-import numpy as np
-from shapes import BBox
 import io
+import unittest
+
+import numpy as np
+from numpy.testing import assert_array_almost_equal
+from shapes import BBox
+
 import motutils
 
 

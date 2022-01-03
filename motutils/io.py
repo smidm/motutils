@@ -13,14 +13,16 @@ workaround: rename the file temporarily
 
 TODO: merge with utils.gt.gt
 """
-import pandas as pd
-import numpy as np
 import sys
 import warnings
-from .visualize import visualize
+
+import numpy as np
+import pandas as pd
+
+from .bbox_mot import BboxMot
 from .mot import Mot
 from .posemot import PoseMot
-from .bbox_mot import BboxMot
+from .visualize import visualize
 
 metrics_higher_is_better = ["idf1", "idp", "idr", "recall", "precision", "mota"]
 metrics_lower_is_better = [
@@ -241,8 +243,8 @@ def eval_mot(df_gt, df_results, sqdistth=10000):
     if len(df_results[nan_mask]) > 0:
         warnings.warn("stripping nans from the evaluated trajectories")
         df_results = df_results[~nan_mask]
-    from motmetrics.utils import compare_to_groundtruth
     import motmetrics as mm
+    from motmetrics.utils import compare_to_groundtruth
 
     acc = compare_to_groundtruth(
         df_gt, df_results, dist="euc", distfields=["x", "y"], distth=sqdistth

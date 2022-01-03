@@ -1,12 +1,13 @@
-import numpy as np
-import pandas as pd
-import xarray as xr
-from shapes import BBox
-import scipy.optimize
+import numbers
 import warnings
 from collections import Counter
-import numbers
+
+import numpy as np
+import pandas as pd
+import scipy.optimize
 import tqdm
+import xarray as xr
+from shapes import BBox
 
 
 class Mot(object):
@@ -15,6 +16,7 @@ class Mot(object):
 
     Single object is represented by its centroid.
     """
+
     def __init__(self, filename=None, **kwds):
         """
         Ground truth stored in xarray.Dataset with frame and id coordinates (frames are 0-indexed).
@@ -45,19 +47,21 @@ class Mot(object):
         if filename is not None:
             self.load(filename)
 
-        super(Mot, self).__init__(**kwds)  # this calls potential mixin classes init methods
-                                           # see https://stackoverflow.com/a/6099026/322468
+        super(Mot, self).__init__(
+            **kwds
+        )  # this calls potential mixin classes init methods
+        # see https://stackoverflow.com/a/6099026/322468
 
     @classmethod
     def from_df(cls, df):
-        assert 'frame' in df
-        assert 'id' in df
-        assert 'x' in df
-        assert 'y' in df
+        assert "frame" in df
+        assert "id" in df
+        assert "x" in df
+        assert "y" in df
         mot = cls()
-        mot.ds = df.set_index(['frame', 'id']).to_xarray()
-        if 'confidence' not in mot.ds:
-            mot.ds['confidence'] = ('frame', 'id'), np.ones_like(mot.ds['x']) * -1
+        mot.ds = df.set_index(["frame", "id"]).to_xarray()
+        if "confidence" not in mot.ds:
+            mot.ds["confidence"] = ("frame", "id"), np.ones_like(mot.ds["x"]) * -1
         return mot
 
     def init_blank(self, frames, ids):
@@ -67,11 +71,17 @@ class Mot(object):
         :param frames: list of frames
         :param ids: list of identities
         """
-        self.ds = xr.Dataset(data_vars={'x': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
-                                        'y': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
-                                        'confidence': (['frame', 'id'], np.nan * np.ones((len(frames), len(ids)))),
-                                        },
-                             coords={'frame': frames, 'id': ids})
+        self.ds = xr.Dataset(
+            data_vars={
+                "x": (["frame", "id"], np.nan * np.ones((len(frames), len(ids)))),
+                "y": (["frame", "id"], np.nan * np.ones((len(frames), len(ids)))),
+                "confidence": (
+                    ["frame", "id"],
+                    np.nan * np.ones((len(frames), len(ids))),
+                ),
+            },
+            coords={"frame": frames, "id": ids},
+        )
 
     def load(self, filename):
         """
@@ -88,8 +98,11 @@ class Mot(object):
 
         :param filename: mot filename or buffer
         """
-        df = pd.read_csv(filename, index_col=['frame', 'id'],
-                         converters={'frame': lambda x: int(x) - 1})
+        df = pd.read_csv(
+            filename,
+            index_col=["frame", "id"],
+            converters={"frame": lambda x: int(x) - 1},
+        )
         df[df == -1] = np.nan
         ds = df.to_xarray()
         # ensure that all frames are in the Dataset
@@ -99,51 +112,73 @@ class Mot(object):
     def to_dataframe(self):
         df = self.ds.to_dataframe().reset_index()
         df[df.isna()] = -1
-        df['frame'] += 1
+        df["frame"] += 1
         return df
 
     def save(self, filename, float_precision=1):
-        self.to_dataframe().to_csv(filename, index=False, float_format='%.' + str(float_precision) + 'f')
+        self.to_dataframe().to_csv(
+            filename, index=False, float_format="%." + str(float_precision) + "f"
+        )
 
     def save_via_json(self, filename, video_filename, fps, description=None):
-        from . import via
         import json
+
+        from . import via
+
         json_out = via.via_json(video_filename, description)
-        json_out['attribute'] = {1: via.attribute('locations', 'FILE1_Z2_XY0', 'TEXT'),
-                                 2: via.attribute('missing', 'FILE1_Z2_XY0', 'TEXT'),
-                                 3: via.attribute('id', 'FILE1_Z1_XY1', 'RADIO',
-                                                  options=range(self.num_ids()))}
+        json_out["attribute"] = {
+            1: via.attribute("locations", "FILE1_Z2_XY0", "TEXT"),
+            2: via.attribute("missing", "FILE1_Z2_XY0", "TEXT"),
+            3: via.attribute(
+                "id", "FILE1_Z1_XY1", "RADIO", options=range(self.num_ids())
+            ),
+        }
         for frame in tqdm.tqdm(range(self.min_frame(), self.max_frame() + 1)):
             for obj_id, row in self.get_positions_dataframe(frame).iterrows():
-                if np.isnan(row['x']) or np.isnan(row['y']):
+                if np.isnan(row["x"]) or np.isnan(row["y"]):
                     continue
-                json_out['metadata'].update((via.metadata(round(frame * 1/fps, 5), 'POINT',
-                                                          [round(x, 2) for x in row[['x', 'y']]],
-                                                          {'2': str(obj_id)}),))
+                json_out["metadata"].update(
+                    (
+                        via.metadata(
+                            round(frame * 1 / fps, 5),
+                            "POINT",
+                            [round(x, 2) for x in row[["x", "y"]]],
+                            {"2": str(obj_id)},
+                        ),
+                    )
+                )
         # for frame in self.get_missing_positions().frame.values:
         #     json_out['metadata'].update((via.metadata((round(frame * 1/fps, 5), round((frame + 2) * 1/fps, 5))),))
 
         pos = self.get_missing_positions()
         for frame in pos.frame.values:
-            pos_frame = pos.sel({'frame': frame})
+            pos_frame = pos.sel({"frame": frame})
             for i in pos_frame.id.values:
-                json_out['metadata'].update(
-                    (via.metadata((round(frame * 1 / fps, 5), round((frame + 2) * 1 / fps, 5)),
-                                  attributes={'2': str(i)}),))
+                json_out["metadata"].update(
+                    (
+                        via.metadata(
+                            (
+                                round(frame * 1 / fps, 5),
+                                round((frame + 2) * 1 / fps, 5),
+                            ),
+                            attributes={"2": str(i)},
+                        ),
+                    )
+                )
 
-        with open(filename, 'w') as fw:
+        with open(filename, "w") as fw:
             json.dump(json_out, fw)
 
     def print_statistics(self):
-        print('counts of number of object ids in frames:')
-        print(np.unique(self.ds['x'].count('id').values, return_counts=True))
+        print("counts of number of object ids in frames:")
+        print(np.unique(self.ds["x"].count("id").values, return_counts=True))
 
-        print('frames with number of objects other than 0 or num_ids:')
-        count_of_valid_ids = self.ds['x'].count('id')
-        print(self.ds.sel({'frame': ~count_of_valid_ids.isin([0, self.num_ids()])}))
+        print("frames with number of objects other than 0 or num_ids:")
+        count_of_valid_ids = self.ds["x"].count("id")
+        print(self.ds.sel({"frame": ~count_of_valid_ids.isin([0, self.num_ids()])}))
 
     def num_ids(self):
-        return len(self.ds['id'])
+        return len(self.ds["id"])
 
     def get_roi(self):
         """
@@ -151,18 +186,26 @@ class Mot(object):
 
         :return: xmin, xmax, ymin, ymax
         """
-        return [float(x) for x in [self.ds['x'].min(), self.ds['x'].max(), self.ds['y'].min(), self.ds['y'].max()]]
+        return [
+            float(x)
+            for x in [
+                self.ds["x"].min(),
+                self.ds["x"].max(),
+                self.ds["y"].min(),
+                self.ds["y"].max(),
+            ]
+        ]
 
     def add_delta(self, delta_x=0, delta_y=0, delta_frames=0):
         """
         Shift ground truth positions and frame numbers by deltas.
         """
-        self.ds['x'] += delta_x
-        self.ds['y'] += delta_y
-        self.ds['frame_'] = self.ds.indexes['frame'] + delta_frames
-        self.ds = self.ds.swap_dims({'frame': 'frame_'})
-        del self.ds['frame']
-        self.ds = self.ds.rename({'frame_': 'frame'})
+        self.ds["x"] += delta_x
+        self.ds["y"] += delta_y
+        self.ds["frame_"] = self.ds.indexes["frame"] + delta_frames
+        self.ds = self.ds.swap_dims({"frame": "frame_"})
+        del self.ds["frame"]
+        self.ds = self.ds.rename({"frame_": "frame"})
 
     def get_positions(self, frame):
         """
@@ -170,7 +213,7 @@ class Mot(object):
         :param frame:
         :return: xarray.Dataset
         """
-        return self.ds.sel({'frame': frame})
+        return self.ds.sel({"frame": frame})
 
     def get_object(self, frame, obj_id):
         return self.ds.sel(dict(frame=frame, id=obj_id))
@@ -181,7 +224,7 @@ class Mot(object):
         :param frame:
         :return: ndarray, shape=(n, 2)
         """
-        return self.get_positions(frame)[['x', 'y']].to_array().values.T
+        return self.get_positions(frame)[["x", "y"]].to_array().values.T
 
     def get_positions_dataframe(self, frame):
         """
@@ -200,11 +243,13 @@ class Mot(object):
         :param frame: frame number
         :return: list of bounding boxes (BBox)
         """
-        assert 'bbox_size_px' in dir(self) and self.bbox_size_px is not None
+        assert "bbox_size_px" in dir(self) and self.bbox_size_px is not None
         bboxes = []
         for obj_id, obj in self.get_positions_dataframe(frame).iterrows():
             if not (np.isnan(obj.x) or np.isnan(obj.y)):
-                bbox = BBox.from_xycenter_wh(obj.x, obj.y, self.bbox_size_px, self.bbox_size_px, frame)
+                bbox = BBox.from_xycenter_wh(
+                    obj.x, obj.y, self.bbox_size_px, self.bbox_size_px, frame
+                )
                 bbox.obj_id = obj_id
                 bboxes.append(bbox)
         return bboxes
@@ -239,9 +284,9 @@ class Mot(object):
             return None
 
     def set_position(self, frame, obj_id, x, y, confidence=1.0):
-        self.ds['x'].loc[{'frame': frame, 'id': obj_id}] = x
-        self.ds['y'].loc[{'frame': frame, 'id': obj_id}] = y
-        self.ds['confidence'].loc[{'frame': frame, 'id': obj_id}] = confidence
+        self.ds["x"].loc[{"frame": frame, "id": obj_id}] = x
+        self.ds["y"].loc[{"frame": frame, "id": obj_id}] = y
+        self.ds["confidence"].loc[{"frame": frame, "id": obj_id}] = confidence
 
     def match_xy(self, frame, xy, maximal_match_distance=None):
         """
@@ -250,19 +295,22 @@ class Mot(object):
         :param xy: tuple
         :return: None if false positive, best matching gt row
         """
-        distance_vectors = self.ds.sel({'frame': frame}).to_dataframe()[['x', 'y']] - xy
-        distances = np.sqrt((distance_vectors['x']**2 + distance_vectors['y']**2))
+        distance_vectors = self.ds.sel({"frame": frame}).to_dataframe()[["x", "y"]] - xy
+        distances = np.sqrt((distance_vectors["x"] ** 2 + distance_vectors["y"] ** 2))
         matching_id = distances.idxmin()
-        if maximal_match_distance is None or distances[matching_id] <= maximal_match_distance:
-            return self.ds.sel({'frame': frame, 'id': matching_id})
+        if (
+            maximal_match_distance is None
+            or distances[matching_id] <= maximal_match_distance
+        ):
+            return self.ds.sel({"frame": frame, "id": matching_id})
         else:
             return None  # fp
 
     def min_frame(self):
-        return int(self.ds['frame'].min())
+        return int(self.ds["frame"].min())
 
     def max_frame(self):
-        return int(self.ds['frame'].max())
+        return int(self.ds["frame"].max())
 
     def interpolate_positions(self, frames=None, ids=None):
         """
@@ -277,11 +325,15 @@ class Mot(object):
         if ids is None:
             ids = self.ds.id
         # totally inefficient, but really simple: interpolates all nans in selected ids
-        return self.ds.sel({'id': ids}).interpolate_na(dim='frame', use_coordinate=True).sel({'frame': frames})
+        return (
+            self.ds.sel({"id": ids})
+            .interpolate_na(dim="frame", use_coordinate=True)
+            .sel({"frame": frames})
+        )
 
     def interpolate_na(self):
-        na = self.ds[['x', 'y']].isnull()
-        assert (na.x == na.y).all(), 'nans in x and y are not consistent'
+        na = self.ds[["x", "y"]].isnull()
+        assert (na.x == na.y).all(), "nans in x and y are not consistent"
         self.ds.confidence.data[na.x.data] = 0.1
         self.reinterpolate()
 
@@ -292,19 +344,28 @@ class Mot(object):
         self.ds.x.data[self.ds.confidence == 0.1] = np.nan
         self.ds.y.data[self.ds.confidence == 0.1] = np.nan
 
-        self.ds['x'] = self.ds.x.interpolate_na(dim='frame', use_coordinate=True)
-        self.ds['y'] = self.ds.y.interpolate_na(dim='frame', use_coordinate=True)
+        self.ds["x"] = self.ds.x.interpolate_na(dim="frame", use_coordinate=True)
+        self.ds["y"] = self.ds.y.interpolate_na(dim="frame", use_coordinate=True)
 
     def _get_index(self):
-        return pd.MultiIndex.from_product([list(range(min(self.df.index.levels[0]), max(self.df.index.levels[0]) + 1)),
-                                           list(range(1, self.num_ids + 1))], names=['frame', 'id'])
+        return pd.MultiIndex.from_product(
+            [
+                list(
+                    range(
+                        min(self.df.index.levels[0]), max(self.df.index.levels[0]) + 1
+                    )
+                ),
+                list(range(1, self.num_ids + 1)),
+            ],
+            names=["frame", "id"],
+        )
 
     def count_all(self):
-        return np.product(self.ds['x'].shape)
+        return np.product(self.ds["x"].shape)
 
     def count_missing(self):
-        num_missing_x = self.ds['x'].isnull().sum()
-        assert num_missing_x == self.ds['y'].isnull().sum()
+        num_missing_x = self.ds["x"].isnull().sum()
+        assert num_missing_x == self.ds["y"].isnull().sum()
         return int(num_missing_x)
 
     def get_missing_positions(self):
@@ -313,8 +374,8 @@ class Mot(object):
 
         :return: DataFrame with frame and id columns
         """
-        count_of_valid_ids = self.ds['x'].count('id')
-        return self.ds.sel({'frame': ~count_of_valid_ids.isin([self.num_ids()])})
+        count_of_valid_ids = self.ds["x"].count("id")
+        return self.ds.sel({"frame": ~count_of_valid_ids.isin([self.num_ids()])})
 
     def get_interpolated_frames(self):
         return self.ds.x.where(self.ds.confidence == 0.1, drop=True).frame
@@ -325,45 +386,62 @@ class Mot(object):
 
         :return: distance travelled between frames; xarray.Dataset, coordinates: frame, id
         """
-        return np.sqrt(self.ds.x.diff('frame') ** 2 + self.ds.y.diff('frame') ** 2)
+        return np.sqrt(self.ds.x.diff("frame") ** 2 + self.ds.y.diff("frame") ** 2)
 
     def draw(self, frames=None, ids=None, marker=None):
         import matplotlib.pylab as plt
+
         if frames is None:
-            frames = self.ds['frame'].values
+            frames = self.ds["frame"].values
         if len(frames) == 1 and marker is None:
-            marker = 'o'
+            marker = "o"
         if ids is None:
-            ids = self.ds['id'].values
+            ids = self.ds["id"].values
 
         for obj_id in ids:
-            pos = self.ds.sel({'frame': frames, 'id': obj_id})
-            if not pos['x'].isnull().all() and not pos['y'].isnull().all():
-                plt.plot(pos['x'], pos['y'], label=obj_id, marker=marker)
+            pos = self.ds.sel({"frame": frames, "id": obj_id})
+            if not pos["x"].isnull().all() and not pos["y"].isnull().all():
+                plt.plot(pos["x"], pos["y"], label=obj_id, marker=marker)
 
     def _init_draw(self):
         import matplotlib.pylab as plt
         # from moviepy.video.tools.drawing import circle
-
         # https://github.com/Zulko/moviepy/issues/1662
         from moviepy.video.tools.drawing import color_gradient
 
         def circle(screensize, center, radius, col1=1.0, col2=0, blur=1):
-            """ Draw an image with a circle.
+            """Draw an image with a circle.
 
             Draws a circle of color ``col1``, on a background of color ``col2``,
             on a screen of size ``screensize`` at the position ``center=(x,y)``,
             with a radius ``radius`` but slightly blurred on the border by ``blur``
             pixels
             """
-            offset = 1.0*(radius-blur)/radius if radius else 0
-            return color_gradient(screensize,p1=center,r=radius, col1=col1,
-                                  col2=col2, shape='radial', offset=offset, vector=[1])
+            offset = 1.0 * (radius - blur) / radius if radius else 0
+            return color_gradient(
+                screensize,
+                p1=center,
+                r=radius,
+                col1=col1,
+                col2=col2,
+                shape="radial",
+                offset=offset,
+                vector=[1],
+            )
 
         if self.colors is None:
-            cm = plt.get_cmap('gist_rainbow')
-            self.colors = dict(list(zip(self.ds.id.data,
-                                   [cm(1. * i / len(self.ds.id), bytes=True)[:3] for i in range(len(self.ds.id))])))
+            cm = plt.get_cmap("gist_rainbow")
+            self.colors = dict(
+                list(
+                    zip(
+                        self.ds.id.data,
+                        [
+                            cm(1.0 * i / len(self.ds.id), bytes=True)[:3]
+                            for i in range(len(self.ds.id))
+                        ],
+                    )
+                )
+            )
 
         blur = self.marker_radius * 0.2
         img_dim = self.marker_radius * 2 + 1
@@ -371,9 +449,13 @@ class Mot(object):
         self.marker_position = (self.marker_radius, self.marker_radius)
         self.markers = {}
         for obj_id, c in list(self.colors.items()):
-            img = circle(img_size, self.marker_position, self.marker_radius, c, blur=blur)
-            mask = circle(img_size, self.marker_position, self.marker_radius, 1, blur=blur)
-            self.markers[obj_id] = {'img': img, 'mask': mask}
+            img = circle(
+                img_size, self.marker_position, self.marker_radius, c, blur=blur
+            )
+            mask = circle(
+                img_size, self.marker_position, self.marker_radius, 1, blur=blur
+            )
+            self.markers[obj_id] = {"img": img, "mask": mask}
 
     def draw_frame(self, img, frame, mapping=None):
         """
@@ -385,6 +467,7 @@ class Mot(object):
         :return: image
         """
         from moviepy.video.tools.drawing import blit
+
         if frame in self.ds.frame:
             if self.markers is None or self.marker_position is None:
                 self._init_draw()
@@ -394,14 +477,20 @@ class Mot(object):
                 row = self.ds.sel(dict(frame=frame, id=obj_id))
                 if not (np.isnan(row.x) or np.isnan(row.y)):
                     marker = self.markers[mapping[obj_id]]
-                    img = blit(marker['img'], img, (int(row.x) - self.marker_position[0],
-                                                    int(row.y) - self.marker_position[1]),
-                               mask=marker['mask'])
+                    img = blit(
+                        marker["img"],
+                        img,
+                        (
+                            int(row.x) - self.marker_position[0],
+                            int(row.y) - self.marker_position[1],
+                        ),
+                        mask=marker["mask"],
+                    )
         return img
 
     def get_object_distance(self, frame, obj_id, other):
         self_pos = self.ds.sel(dict(frame=frame, id=obj_id))
-        return np.linalg.norm((self_pos[['x', 'y']] - other[['x', 'y']]).to_array())
+        return np.linalg.norm((self_pos[["x", "y"]] - other[["x", "y"]]).to_array())
 
     def find_mapping(self, other, n_frames_to_probe=10):
         """
@@ -415,17 +504,29 @@ class Mot(object):
         """
         assert len(self.ds.id) == len(other.ds.id)
         # get positions in a suitable frame
-        self_all_ids = self.ds.where(self.ds.x.count(dim='id') == len(self.ds.id), drop=True)
-        other_all_ids = other.ds.where(other.ds.x.count(dim='id') == len(other.ds.id), drop=True)
-        frames = np.intersect1d(self_all_ids.frame, other_all_ids.frame, assume_unique=True)
+        self_all_ids = self.ds.where(
+            self.ds.x.count(dim="id") == len(self.ds.id), drop=True
+        )
+        other_all_ids = other.ds.where(
+            other.ds.x.count(dim="id") == len(other.ds.id), drop=True
+        )
+        frames = np.intersect1d(
+            self_all_ids.frame, other_all_ids.frame, assume_unique=True
+        )
         jjs = Counter()
         for frame in np.random.choice(frames, n_frames_to_probe):
             # match positions
-            distance_matrix = np.vectorize(lambda i, j: self.get_object_distance(frame, i, other.get_object(frame, j))) \
-                (*np.meshgrid(self.ds.id, other.ds.id, indexing='ij'))
+            distance_matrix = np.vectorize(
+                lambda i, j: self.get_object_distance(
+                    frame, i, other.get_object(frame, j)
+                )
+            )(*np.meshgrid(self.ds.id, other.ds.id, indexing="ij"))
             ii, jj = scipy.optimize.linear_sum_assignment(distance_matrix)
             if np.count_nonzero(distance_matrix[ii, jj] > 10):
-                warnings.warn('large distance beween detection and gt ' + str(distance_matrix[ii, jj]))
+                warnings.warn(
+                    "large distance beween detection and gt "
+                    + str(distance_matrix[ii, jj])
+                )
             jjs[tuple(jj)] += 1
 
         jj = np.array(jjs.most_common()[0][0])
