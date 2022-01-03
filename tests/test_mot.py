@@ -8,7 +8,7 @@ import motutils
 
 class MotTestCase(unittest.TestCase):
     def setUp(self):
-        self.filename = 'tests/data/Sowbug3_cut.txt'
+        self.filename = "tests/data/Sowbug3_cut.txt"
         """
         1,1,434.48703703703706,279.04814814814813,-1,-1,1
         1,2,277.67721518987344,293.62025316455697,-1,-1,1
@@ -43,12 +43,12 @@ class MotTestCase(unittest.TestCase):
 
     def test_load(self):
         ds = self.gt.ds
-        self.assertEqual(len(ds['frame']), 4500)
-        self.assertTrue(np.all(ds['frame'][[0, -1]] == (0, 4499)))
-        self.assertEqual(len(ds['id']), 5)
+        self.assertEqual(len(ds["frame"]), 4500)
+        self.assertTrue(np.all(ds["frame"][[0, -1]] == (0, 4499)))
+        self.assertEqual(len(ds["id"]), 5)
 
     def test_save(self):
-        out_file = 'tests/out/gttestcase.txt'
+        out_file = "tests/out/gttestcase.txt"
         self.gt.save(out_file)
         # self.assertTrue(filecmp.cmp(self.filename, out_file), 'saved file differs from source file')
         # # differs is float rounding and int / float
@@ -66,30 +66,30 @@ class MotTestCase(unittest.TestCase):
         # fr id x                   y
         # 1, 1, 434.48703703703706, 279.04814814814813, -1, -1, 1
         self.gt.add_delta(delta_x=-434)
-        pos = self.gt.get_positions(frame=0).sel({'id': 1})
-        self.assertAlmostEqual(pos['x'].item(), 0, 0)
-        self.assertAlmostEqual(pos['y'].item(), 279, 0)
+        pos = self.gt.get_positions(frame=0).sel({"id": 1})
+        self.assertAlmostEqual(pos["x"].item(), 0, 0)
+        self.assertAlmostEqual(pos["y"].item(), 279, 0)
 
         self.gt.add_delta(delta_x=434)
-        pos = self.gt.get_positions(frame=0).sel({'id': 1})
-        self.assertAlmostEqual(pos['x'].item(), 434, 0)
-        self.assertAlmostEqual(pos['y'].item(), 279, 0)
+        pos = self.gt.get_positions(frame=0).sel({"id": 1})
+        self.assertAlmostEqual(pos["x"].item(), 434, 0)
+        self.assertAlmostEqual(pos["y"].item(), 279, 0)
 
         self.gt.add_delta(delta_y=-279)
-        pos = self.gt.get_positions(frame=0).sel({'id': 1})
-        self.assertAlmostEqual(pos['x'].item(), 434, 0)
-        self.assertAlmostEqual(pos['y'].item(), 0, 0)
+        pos = self.gt.get_positions(frame=0).sel({"id": 1})
+        self.assertAlmostEqual(pos["x"].item(), 434, 0)
+        self.assertAlmostEqual(pos["y"].item(), 0, 0)
 
         self.gt.add_delta(delta_y=279)
-        pos = self.gt.get_positions(frame=0).sel({'id': 1})
-        self.assertAlmostEqual(pos['x'].item(), 434, 0)
-        self.assertAlmostEqual(pos['y'].item(), 279, 0)
+        pos = self.gt.get_positions(frame=0).sel({"id": 1})
+        self.assertAlmostEqual(pos["x"].item(), 434, 0)
+        self.assertAlmostEqual(pos["y"].item(), 279, 0)
 
         self.gt.add_delta(delta_frames=2)
         self.assertAlmostEqual(self.gt.min_frame(), 2)
-        pos = self.gt.get_positions(frame=2).sel({'id': 1})
-        self.assertAlmostEqual(pos['x'].item(), 434, 0)
-        self.assertAlmostEqual(pos['y'].item(), 279, 0)
+        pos = self.gt.get_positions(frame=2).sel({"id": 1})
+        self.assertAlmostEqual(pos["x"].item(), 434, 0)
+        self.assertAlmostEqual(pos["y"].item(), 279, 0)
 
     def test_get_positions(self):
         frame_pos = self.gt.get_positions(1)
@@ -104,16 +104,19 @@ class MotTestCase(unittest.TestCase):
             y           (id) float64 280.1 293.7 407.9 430.0 396.3
             confidence  (id) float64 1.0 1.0 1.0 1.0 1.0
         """
-        assert_array_almost_equal(frame_pos['x'],
-                                  [434.46, 278.15, 179.22, 180.0, 155.18], 1)
-        assert_array_almost_equal(frame_pos['y'],
-                                  [280.12, 293.66, 407.88, 430.0, 396.30], 1)
+        assert_array_almost_equal(
+            frame_pos["x"], [434.46, 278.15, 179.22, 180.0, 155.18], 1
+        )
+        assert_array_almost_equal(
+            frame_pos["y"], [280.12, 293.66, 407.88, 430.0, 396.30], 1
+        )
 
-        assert_array_almost_equal(frame_pos.sel({'id': 1})[['x', 'y']].to_array(),
-                                  [434.46, 280.12], 1)
+        assert_array_almost_equal(
+            frame_pos.sel({"id": 1})[["x", "y"]].to_array(), [434.46, 280.12], 1
+        )
 
-        self.assertAlmostEqual(frame_pos.sel({'id': 1})['x'].item(), 434.46, 1)
-        self.assertAlmostEqual(frame_pos.sel({'id': 1})['y'].item(), 280.12, 1)
+        self.assertAlmostEqual(frame_pos.sel({"id": 1})["x"].item(), 434.46, 1)
+        self.assertAlmostEqual(frame_pos.sel({"id": 1})["y"].item(), 280.12, 1)
 
     def test_get_xy_numpy(self):
         xy = self.gt.get_xy_numpy(0)
@@ -204,20 +207,20 @@ class MotTestCase(unittest.TestCase):
     def test_interpolate_positions(self):
         # check dimensions of interpolated arrays
         ds = self.gt.interpolate_positions()
-        self.assertEqual(len(ds['frame']), 4500)
-        self.assertEqual(len(ds['id']), 5)
+        self.assertEqual(len(ds["frame"]), 4500)
+        self.assertEqual(len(ds["id"]), 5)
 
         ds = self.gt.interpolate_positions(frames=[0, 1, 2, 3])
-        self.assertEqual(len(ds['frame']), 4)
-        self.assertEqual(len(ds['id']), 5)
+        self.assertEqual(len(ds["frame"]), 4)
+        self.assertEqual(len(ds["id"]), 5)
 
         ds = self.gt.interpolate_positions(ids=[1, 4])
-        self.assertEqual(len(ds['frame']), 4500)
-        self.assertEqual(len(ds['id']), 2)
+        self.assertEqual(len(ds["frame"]), 4500)
+        self.assertEqual(len(ds["id"]), 2)
 
         ds = self.gt.interpolate_positions(frames=[0, 1], ids=[1, 2, 3])
-        self.assertEqual(len(ds['frame']), 2)
-        self.assertEqual(len(ds['id']), 3)
+        self.assertEqual(len(ds["frame"]), 2)
+        self.assertEqual(len(ds["id"]), 3)
 
         # check interpolated values
         self.gt.set_position(10, 1, 10, 10)
@@ -255,5 +258,5 @@ class MotTestCase(unittest.TestCase):
         self.gt.get_object_distance(0, 1, self.gt.get_object(10, 1))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

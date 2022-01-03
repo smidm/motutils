@@ -15,13 +15,13 @@ class PoseMotTestCase(unittest.TestCase):
 
     def test_init_blank(self):
         self.gt.init_blank(frames=list(range(4)), ids=list(range(3)), n_points=2)
-        self.assertTrue('x' in self.gt.ds)
-        self.assertTrue('y' in self.gt.ds)
-        self.assertEqual(self.gt.ds['x'].shape, (4, 3, 2))
-        self.assertEqual(self.gt.ds.sel(dict(frame=0, id=0))['x'].shape, (2,))
+        self.assertTrue("x" in self.gt.ds)
+        self.assertTrue("y" in self.gt.ds)
+        self.assertEqual(self.gt.ds["x"].shape, (4, 3, 2))
+        self.assertEqual(self.gt.ds.sel(dict(frame=0, id=0))["x"].shape, (2,))
 
     def test_load_save(self):
-        out_file = 'tests/out/gttestcase.txt'
+        out_file = "tests/out/gttestcase.txt"
         self.gt.save(out_file)
         loaded_gt = motutils.PoseMot()
         loaded_gt.load(out_file)
@@ -65,23 +65,17 @@ class PoseMotTestCase(unittest.TestCase):
         self.assertEqual(len(bboxes), 1)
 
     def test_match_xy(self):
-        xy = np.array([[0, 0],
-                       [0.1, 0.1],
-                       [0.2, 0.2]])  # shape (n_keypoints, 2)
+        xy = np.array([[0, 0], [0.1, 0.1], [0.2, 0.2]])  # shape (n_keypoints, 2)
         match = self.gt.match_xy(0, xy)
         self.assertEqual(match.frame, 0)
         self.assertEqual(match.id, 0)
 
-        xy = np.array([[1, 1],
-                       [1.1, 1.1],
-                       [1.2, 1.2]])  # shape (n_keypoints, 2)
+        xy = np.array([[1, 1], [1.1, 1.1], [1.2, 1.2]])  # shape (n_keypoints, 2)
         match = self.gt.match_xy(0, xy)
         self.assertEqual(match.frame, 0)
         self.assertEqual(match.id, 1)
 
-        xy = np.array([[2, 2],
-                       [2.1, 2.1],
-                       [2.2, 2.2]])  # shape (n_keypoints, 2)
+        xy = np.array([[2, 2], [2.1, 2.1], [2.2, 2.2]])  # shape (n_keypoints, 2)
         match = self.gt.match_xy(0, xy)
         self.assertEqual(match.frame, 0)
         self.assertEqual(match.id, 1)
@@ -93,9 +87,7 @@ class PoseMotTestCase(unittest.TestCase):
         match = self.gt.match_xy(0, xy, max_match_distance_px=np.sqrt(2) - 0.1)
         self.assertEqual(match, None)
 
-        xy = np.array([[2, 1],
-                       [1.1, 1.1],
-                       [1.2, 1.2]])  # shape (n_keypoints, 2)
+        xy = np.array([[2, 1], [1.1, 1.1], [1.2, 1.2]])  # shape (n_keypoints, 2)
         match = self.gt.match_xy(0, xy, max_match_distance_px=1)
         self.assertEqual(match.frame, 0)
         self.assertEqual(match.id, 1)
@@ -105,6 +97,7 @@ class PoseMotTestCase(unittest.TestCase):
 
     def test_draw(self, interactive=False):
         import matplotlib.pylab as plt
+
         self.gt.draw(frames=[0])
         if interactive:
             plt.legend()
@@ -126,5 +119,5 @@ class PoseMotTestCase(unittest.TestCase):
             plt.show()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
