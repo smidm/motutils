@@ -41,7 +41,6 @@ class MotTestCase(unittest.TestCase):
 
     def test_init_blank(self):
         self.gt.init_blank(list(range(0, 101)), list(range(1, 6)))
-        print(self.gt.ds)
 
     def test_load(self):
         ds = self.gt.ds
@@ -62,7 +61,7 @@ class MotTestCase(unittest.TestCase):
         self.assertEqual(self.gt.num_ids(), 5)
 
     def test_get_roi(self):
-        print(self.gt.get_roi())
+        self.gt.get_roi()
 
     def test_add_delta(self):
         # fr id x                   y
@@ -201,9 +200,7 @@ class MotTestCase(unittest.TestCase):
 
     def test_minmax_frame(self):
         ret = self.gt.min_frame()
-        print(ret)
         ret = self.gt.max_frame()
-        print(ret)
 
     def test_interpolate_positions(self):
         # check dimensions of interpolated arrays
@@ -233,7 +230,6 @@ class MotTestCase(unittest.TestCase):
 
     def test_get_missing_positions(self):
         ret = self.gt.get_missing_positions()
-        print(ret)
 
     def test_draw(self):
         self.gt.draw([0])
