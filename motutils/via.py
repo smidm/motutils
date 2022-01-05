@@ -61,13 +61,15 @@ def via_json(video_filename, description=None):
     }
     """
     json_out = json.loads(json_template)
-    json_out['file']['1']['fname'] = video_filename
+    json_out["file"]["1"]["fname"] = video_filename
     if description is not None:
-        json_out['project']['pname'] = description
+        json_out["project"]["pname"] = description
     return json_out
 
 
-def attribute(name, anchor_id, attribute_type, desc=None, options=None, default_option_id=None):
+def attribute(
+    name, anchor_id, attribute_type, desc=None, options=None, default_option_id=None
+):
     """
     Create VIA attribute.
 
@@ -103,20 +105,21 @@ def attribute(name, anchor_id, attribute_type, desc=None, options=None, default_
     :param default_option_id:
     :return:
     """
-    VIA_ATTRIBUTE_TYPE = {'TEXT': 1, 'CHECKBOX': 2, 'RADIO': 3, 'SELECT': 4, 'IMAGE': 5}
+    VIA_ATTRIBUTE_TYPE = {"TEXT": 1, "CHECKBOX": 2, "RADIO": 3, "SELECT": 4, "IMAGE": 5}
     if desc is None:
-        desc = ''
+        desc = ""
     if options is None:
         options = []
     if default_option_id is None:
-        default_option_id = ''
-    return {'aname': name,
-            'anchor_id': anchor_id,
-            'type': VIA_ATTRIBUTE_TYPE[attribute_type],
-            'desc': desc,
-            'options': {i: val for i, val in enumerate(options, start=1)},
-            'default_option_id': default_option_id
-            }
+        default_option_id = ""
+    return {
+        "aname": name,
+        "anchor_id": anchor_id,
+        "type": VIA_ATTRIBUTE_TYPE[attribute_type],
+        "desc": desc,
+        "options": {i: val for i, val in enumerate(options, start=1)},
+        "default_option_id": default_option_id,
+    }
 
 
 def metadata(time, shape_type=None, coords=None, attributes=None):
@@ -129,12 +132,23 @@ def metadata(time, shape_type=None, coords=None, attributes=None):
     :param attributes: {attribute id: attribute value index, ...}
     :return: metadata dictionary
     """
-    VIA_RSHAPE = {'POINT': 1, 'RECTANGLE': 2, 'CIRCLE': 3, 'ELLIPSE': 4, 'LINE': 5, 'POLYLINE': 6, 'POLYGON': 7,
-                  'EXTREME_RECTANGLE': 8, 'EXTREME_CIRCLE': 9}
+    VIA_RSHAPE = {
+        "POINT": 1,
+        "RECTANGLE": 2,
+        "CIRCLE": 3,
+        "ELLIPSE": 4,
+        "LINE": 5,
+        "POLYLINE": 6,
+        "POLYGON": 7,
+        "EXTREME_RECTANGLE": 8,
+        "EXTREME_CIRCLE": 9,
+    }
     if shape_type is None:
         assert coords is None
         xy = []
-        assert attributes, 'temporal annotation requires an FILE1_Z2_XY0 attribute value, e.g. {\'1\': \'_DEFAULT\'}'
+        assert (
+            attributes
+        ), "temporal annotation requires an FILE1_Z2_XY0 attribute value, e.g. {'1': '_DEFAULT'}"
     else:
         xy = [VIA_RSHAPE[shape_type]] + coords
     if attributes is None:
@@ -143,23 +157,27 @@ def metadata(time, shape_type=None, coords=None, attributes=None):
         av = attributes
     if not isinstance(time, (list, tuple)):
         time = [time]
-    random_id = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
-    return f'1_{random_id}', {
-        'vid': '1',
-        'flg': 0,
-        'z': time,
-        'xy': xy,
-        'av': av
+    random_id = "".join(random.choices(string.ascii_letters + string.digits, k=8))
+    return f"1_{random_id}", {"vid": "1", "flg": 0, "z": time, "xy": xy, "av": av}
+
+
+if __name__ == "__main__":
+    json_out = via_json("video.mp4", "hunting for a rectangle ground truth")
+    color_options = ["red", "green"]
+    json_out["attribute"] = {
+        1: attribute("locations", "FILE1_Z2_XY0", "TEXT"),
+        2: attribute("color", "FILE1_Z1_XY1", "RADIO", options=color_options),
     }
-
-
-if __name__ == '__main__':
-    json_out = via_json('video.mp4', 'hunting for a rectangle ground truth')
-    color_options = ['red', 'green']
-    json_out['attribute'] = {1: attribute('locations', 'FILE1_Z2_XY0', 'TEXT'),
-                             2: attribute('color', 'FILE1_Z1_XY1', 'RADIO', options=color_options)}
     for time_s in range(100):
-        json_out['metadata'].update((metadata(time_s, 'RECTANGLE', [100 + time_s * 10, 100, 150, 150],
-                                              {'2': '1' if time_s % 2 == 0 else '2'}),))  # second attribute, '1' is red, '2' is green
-    with open('rectangles.json', 'w') as fw:
+        json_out["metadata"].update(
+            (
+                metadata(
+                    time_s,
+                    "RECTANGLE",
+                    [100 + time_s * 10, 100, 150, 150],
+                    {"2": "1" if time_s % 2 == 0 else "2"},
+                ),
+            )
+        )  # second attribute, '1' is red, '2' is green
+    with open("rectangles.json", "w") as fw:
         json.dump(json_out, fw)
