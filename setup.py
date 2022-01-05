@@ -34,6 +34,7 @@ setup(
     url="https://github.com/smidm/motutils",
     packages=["motutils"],
     install_requires=[
+        "click",
         "h5py",
         "matplotlib",
         "motmetrics",
@@ -76,7 +77,7 @@ setup(
     zip_safe=True,
     entry_points={
         "console_scripts": [
-            "motutils=motutils.cli:main",
+            "motutils=motutils.cli:cli",
         ],
     },
 )
