@@ -26,6 +26,7 @@
   - mot format conversion
 
 ![visualization montage](assets/visualization_montage.jpg)
+
 Video comparison of multiple tracking methods and the ground truth.
 
 # Installation
