@@ -18,8 +18,14 @@ class GTDetectorTestCase(unittest.TestCase):
         )
         bboxes = self.detector.detect(0)
         for bbox in bboxes:
-            self.assertEqual(bbox.width, 70)
-            self.assertEqual(bbox.height, 70)
+            self.assertAlmostEqual(bbox.width, 70)
+            self.assertAlmostEqual(bbox.height, 70)
+            # on py39 on travis this:
+            #    self.assertEqual(bbox.width, 70)
+            # fails with:
+            # AssertionError: 70.00000000000003 != 70
+            # why?
+            # py36-38 are ok
 
     def test_fn1(self):
         self.detector = OracleDetector(
