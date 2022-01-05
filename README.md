@@ -31,7 +31,7 @@ Video comparison of multiple tracking methods and the ground truth.
 
 # Installation
 
-`pip install motutils`
+`pip install git+https://github.com/smidm/motutils`
 
 # Usage
 
@@ -117,7 +117,7 @@ Data variables:
     width       (frame, id) float64 nan nan nan nan nan ... nan nan nan nan nan
     height      (frame, id) float64 nan nan nan nan nan ... nan nan nan nan nan
     confidence  (frame, id) float64 1.0 1.0 1.0 1.0 1.0 ... 1.0 1.0 1.0 1.0 1.0
-    
+
 >>> mot.num_ids()
 5
 
@@ -163,7 +163,7 @@ Data variables:
 22497   4500   3  185.3  393.3   -1.0    -1.0         1.0
 22498   4500   4  138.6  387.2   -1.0    -1.0         1.0
 22499   4500   5  420.2  294.7   -1.0    -1.0         1.0
-[22500 rows x 7 columns]    
+[22500 rows x 7 columns]
 ```
 
 # Documentation
