@@ -13,7 +13,6 @@ workaround: rename the file temporarily
 
 TODO: merge with utils.gt.gt
 """
-import sys
 import warnings
 
 import numpy as np
@@ -22,7 +21,6 @@ import pandas as pd
 from .bbox_mot import BboxMot
 from .mot import Mot
 from .posemot import PoseMot
-from .visualize import visualize
 
 metrics_higher_is_better = ["idf1", "idp", "idr", "recall", "precision", "mota"]
 metrics_lower_is_better = [

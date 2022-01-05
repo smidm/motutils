@@ -18,9 +18,11 @@ class IOTestCase(unittest.TestCase):
 
     def test_load_idtracker(self):
         df = io.load_idtracker("tests/data/idtracker/trajectories.txt")
-        self.assertEqual(df.frame.max(), 4499)  # trajectories.txt somehow omitted last frame
+        self.assertEqual(
+            df.frame.max(), 4499
+        )  # trajectories.txt somehow omitted last frame
         self.assertEqual(len(df.id.unique()), 5)
-        df = df.dropna(subset=['x', 'y'])
+        df = df.dropna(subset=["x", "y"])
         self.assertTrue((df.x < 640).all() and (df.y < 640).all())
 
     def test_load_idtrackerai(self):
@@ -33,8 +35,6 @@ class IOTestCase(unittest.TestCase):
         df = io.load_toxtrac("tests/data/toxtrac/Tracking_0.txt")
         self.assertEqual(len(df.id.unique()), 5)
         self.assertTrue((df.x < 640).all() and (df.y < 640).all())
-
-
 
 
 if __name__ == "__main__":
