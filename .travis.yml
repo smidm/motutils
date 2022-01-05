@@ -1,5 +1,5 @@
 # Config file for automatic testing at travis-ci.com
-
+dist: bionic
 language: python
 python:
   - 3.9
