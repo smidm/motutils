@@ -10,7 +10,7 @@ import motutils
 
 class MotTestCase(unittest.TestCase):
     def setUp(self):
-        self.filename = "tests/data/Sowbug3_cut.txt"
+        self.filename = "tests/data/Sowbug3_cut.csv"
         """
         1,1,434.48703703703706,279.04814814814813,-1,-1,1
         1,2,277.67721518987344,293.62025316455697,-1,-1,1
@@ -52,7 +52,7 @@ class MotTestCase(unittest.TestCase):
     def test_save(self):
         out_file = "tests/out/gttestcase.txt"
         self.gt.save(out_file)
-        # self.assertTrue(filecmp.cmp(self.filename, out_file), 'saved file differs from source file')
+        # self.assertTrue(filecmp.cmp(self.filename_or_buffer, out_file), 'saved file differs from source file')
         # # differs is float rounding and int / float
 
     def test_print_statistics(self):

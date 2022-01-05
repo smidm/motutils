@@ -40,7 +40,7 @@ class PoseMot(Mot):
             coords={"frame": frames, "id": ids, "keypoint": list(range(n_points))},
         )
 
-    # def load(self, filename):
+    # def load(self, filename_or_buffer):
     #     pass
 
     # def get_xy_numpy(self, frame):
@@ -51,9 +51,9 @@ class PoseMot(Mot):
     #     """
     #     return self.get_positions(frame)[['x', 'y']].to_array().values.T
 
-    def load(self, filename):
+    def load(self, filename_or_buffer):
         df = pd.read_csv(
-            filename,
+            filename_or_buffer,
             index_col=["frame", "id", "keypoint"],
             converters={"frame": lambda x: int(x) - 1},
         )

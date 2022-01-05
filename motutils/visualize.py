@@ -1,7 +1,6 @@
 import cv2  # TODO: remove dependency
 import numpy as np
-from moviepy.video.compositing.CompositeVideoClip import (CompositeVideoClip,
-                                                          clips_array)
+from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip, clips_array
 from moviepy.video.fx.resize import resize
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.video.VideoClip import ColorClip, TextClip
@@ -224,8 +223,7 @@ def visualize(
 if __name__ == "__main__":
     import argparse
 
-    from .io import (load_any_mot, load_idtracker, load_idtrackerai,
-                     load_toxtrac)
+    from .io import load_any_mot, load_idtracker, load_idtrackerai, load_toxtrac
 
     parser = argparse.ArgumentParser(description="Visualize mot trajectories.")
     parser.add_argument("video_in", type=str, help="input video file")

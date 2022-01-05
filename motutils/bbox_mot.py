@@ -7,7 +7,7 @@ from .mot import Mot
 
 
 class BboxMot(Mot):
-    def __init__(self, filename=None, **kwds):
+    def __init__(self, **kwargs):
         """
         Ground truth stored in xarray.Dataset with frame and id coordinates (frames are 0-indexed).
 
@@ -25,7 +25,7 @@ class BboxMot(Mot):
             height      (frame, id) float64 nan nan nan nan nan ... nan nan nan nan nan
             confidence  (frame, id) float64 1.0 1.0 1.0 1.0 1.0 ... 1.0 1.0 1.0 1.0 1.0
         """
-        super(Mot, self).__init__(**kwds)
+        super(Mot, self).__init__(**kwargs)
 
     def init_blank(self, frames, ids):
         """
@@ -56,7 +56,7 @@ class BboxMot(Mot):
 
         Loads trajectories into a DataFrame, columns frame and id start with 1 (MATLAB indexing).
 
-        :param filename: mot filename or buffer
+        :param filename: mot filename_or_buffer or buffer
         """
         df = pd.read_csv(
             filename,

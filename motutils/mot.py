@@ -17,7 +17,7 @@ class Mot(object):
     Single object is represented by its centroid.
     """
 
-    def __init__(self, filename=None, **kwds):
+    def __init__(self, filename_or_buffer=None, **kwargs):
         """
         Ground truth stored in xarray.Dataset with frame and id coordinates (frames are 0-indexed).
 
@@ -44,11 +44,11 @@ class Mot(object):
         self.markers = None
         self.colors = None
 
-        if filename is not None:
-            self.load(filename)
+        if filename_or_buffer is not None:
+            self.load(filename_or_buffer)
 
         super(Mot, self).__init__(
-            **kwds
+            **kwargs
         )  # this calls potential mixin classes init methods
         # see https://stackoverflow.com/a/6099026/322468
 
@@ -83,7 +83,7 @@ class Mot(object):
             coords={"frame": frames, "id": ids},
         )
 
-    def load(self, filename):
+    def load(self, filename_or_buffer):
         """
         Load trajectories of multiple objects from CSV file.
 
@@ -96,10 +96,10 @@ class Mot(object):
         - y
         - confidence
 
-        :param filename: mot filename or buffer
+        :param filename_or_buffer: mot filename or buffer
         """
         df = pd.read_csv(
-            filename,
+            filename_or_buffer,
             index_col=["frame", "id"],
             converters={"frame": lambda x: int(x) - 1},
         )
@@ -405,6 +405,7 @@ class Mot(object):
 
     def _init_draw(self):
         import matplotlib.pylab as plt
+
         # from moviepy.video.tools.drawing import circle
         # https://github.com/Zulko/moviepy/issues/1662
         from moviepy.video.tools.drawing import color_gradient

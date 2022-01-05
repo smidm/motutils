@@ -10,7 +10,7 @@ class OracleDetector(motutils.OracleDetectorMixin, motutils.Mot):
 class OracleDetectorVisualizeTestCase(unittest.TestCase):
     def setUp(self):
         self.detector = OracleDetector(
-            filename="tests/data/Sowbug3_cut.txt",
+            filename_or_buffer="tests/data/Sowbug3_cut.csv",
             bb_size_px=70,
             fp_prob=0.05,
             fn_prob=0.001,

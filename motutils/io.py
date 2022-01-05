@@ -35,8 +35,12 @@ metrics_lower_is_better = [
 ]
 
 
-def load_any_mot(filename):
-    df = pd.read_csv(filename, nrows=2)
+def load_any_mot(filename_or_buffer):
+    df = pd.read_csv(filename_or_buffer, nrows=2)
+    try:
+        filename_or_buffer.seek(0)
+    except AttributeError:
+        pass
     try:
         for s in df.columns:
             float(s)
@@ -44,15 +48,15 @@ def load_any_mot(filename):
     except ValueError:
         bbox_mot = False
     if bbox_mot:
-        mot = BboxMot(filename)
+        mot = BboxMot(filename_or_buffer=filename_or_buffer)
     elif "keypoint" in df.columns:
-        mot = PoseMot(filename=filename)
+        mot = PoseMot(filename_or_buffer=filename_or_buffer)
     else:
-        mot = Mot(filename)
+        mot = Mot(filename_or_buffer=filename_or_buffer)
     return mot
 
 
-def load_idtracker(filename):
+def load_idtracker(filename_or_buffer):
     """
     Load idTracker results.
 
@@ -64,10 +68,10 @@ def load_idtracker(filename):
     453.22	670.03	NaN	389.63	587.08	NaN	608.41	240.66	NaN	1566.8	132.25	NaN	355.92	122.81	NaN
     ...
 
-    :param filename: idTracker results (trajectories.txt or trajectories_nogaps.txt)
+    :param filename_or_buffer: idTracker results (trajectories.txt or trajectories_nogaps.txt)
     :return: DataFrame with frame 	id 	x 	y 	width 	height 	confidence columns
     """
-    df = pd.read_csv(filename, delim_whitespace=True)
+    df = pd.read_csv(filename_or_buffer, delim_whitespace=True)
     df.index += 1
     n_animals = len(df.columns) // 3
     for i in range(1, n_animals + 1):
@@ -90,14 +94,14 @@ def load_idtracker(filename):
     return df_out
 
 
-def load_idtrackerai(filename):
+def load_idtrackerai(filename_or_buffer):
     """
     Load idtracker.ai results
 
-    :param filename: idTracker results (trajectories.txt or trajectories_nogaps.txt)
+    :param filename_or_buffer: idTracker results (trajectories.txt or trajectories_nogaps.txt)
     :return: DataFrame with frame 	id 	x 	y 	width 	height 	confidence columns
     """
-    traj_ndarray = np.load(filename, allow_pickle=True)
+    traj_ndarray = np.load(filename_or_buffer, allow_pickle=True)
     traj_dict = traj_ndarray.item()
     n_frames, n_ids, _ = traj_dict["trajectories"].shape
 
@@ -117,7 +121,7 @@ def load_idtrackerai(filename):
     return df
 
 
-def load_toxtrac(filename, topleft_xy=(0, 0)):
+def load_toxtrac(filename_or_buffer, topleft_xy=(0, 0)):
     """
     Load ToxTrack results.
 
@@ -131,12 +135,12 @@ def load_toxtrac(filename, topleft_xy=(0, 0)):
     Documentation of the file format is in
     [ToxTrac: a fast and robust software for tracking organisms](https://arxiv.org/pdf/1706.02577.pdf) page 33.
 
-    :param filename: Toxtrac results (Tracking_0.txt)
+    :param filename_or_buffer: Toxtrac results (Tracking_0.txt)
     :param topleft_xy: tuple, length 2; xy coordinates of the arena top left corner
     :return: DataFrame with frame 	id 	x 	y 	width 	height 	confidence columns
     """
     df = pd.read_csv(
-        filename,
+        filename_or_buffer,
         delim_whitespace=True,
         names=["frame", "arena", "id", "x", "y", "label"],
         usecols=["frame", "id", "x", "y"],
@@ -152,22 +156,22 @@ def load_toxtrac(filename, topleft_xy=(0, 0)):
     return df
 
 
-def load_posemot_sleap_analysis(filename, num_objects=None):
+def load_posemot_sleap_analysis(filename_or_buffer, num_objects=None):
     """
 
-    :param filename:
+    :param filename_or_buffer:
     :param num_objects:
     :return: PoseMot() nans where object is not present
     """
     import h5py
 
-    f = h5py.File(filename, "r")
+    f = h5py.File(filename_or_buffer, "r")
     # occupancy_matrix = f['track_occupancy'][:]
     try:
         tracks_matrix = f["tracks"][:]  # noqa: F841
     except KeyError:
         print(
-            f'File {filename} doesn\'t appear to be SLEAP "analysis" file.\n'
+            f'File {filename_or_buffer} doesn\'t appear to be SLEAP "analysis" file.\n'
             f"Export analysis from sleap-label using File -> Export Analysis HDF5.\n"
         )
         raise
@@ -185,7 +189,7 @@ def load_posemot_sleap_analysis(filename, num_objects=None):
     return mot
 
 
-# def load_posemot_sleap(filename, num_objects=None):
+# def load_posemot_sleap(filename_or_buffer, num_objects=None):
 #     import sleap
 #     # TODO
 
@@ -194,15 +198,15 @@ def save_mot(filename, df):
     df.to_csv(filename, index=False)  # header=False,
 
 
-def load_mot(filename):
+def load_mot(filepath_or_buffer):
     """
     Load Multiple Object Tacking Challenge trajectories file.
 
-    :param filename: mot filename
+    :param filepath_or_buffer: mot filename_or_buffer or buffer
     :return: DataFrame, columns frame and id start with 1 (MATLAB indexing)
     """
     df = pd.read_csv(
-        filename, index_col=["frame", "id"]
+        filepath_or_buffer, index_col=["frame", "id"]
     )  # names=[u'frame', u'id', u'x', u'y', u'width', u'height', u'confidence']
     return df[(df.x != -1) & (df.y != -1)]
 
@@ -256,21 +260,27 @@ def eval_mot(df_gt, df_results, sqdistth=10000):
     return mh.compute(acc, metrics), acc  # metrics=mm.metrics.motchallenge_metrics
 
 
-def eval_and_save(gt_file, mot_results_file, out_csv=None, results_keypoint=None):
+def eval_and_save(ground_truth, mot_results, out_csv=None, results_keypoint=None):
     """
     Evaluate results and save metrics.
 
-    :param gt_file: ground truth filename (MOT format)
-    :param mot_results_file: results filename (MOT format)
-    :param out_csv: output file with a summary
+    :param ground_truth: ground truth filename_or_buffer (MOT format), buffer or Mot object
+    :param mot_results: results filename_or_buffer (MOT format), buffer or Mot
+    :param out_csv: output file with a summary (filename_or_buffer or buffer)
     """
-    df_gt = load_mot(gt_file)
-    df_results = load_any_mot(mot_results_file).to_dataframe()
+    try:
+        df_gt = ground_truth.to_dataframe()
+    except AttributeError:
+        df_gt = load_mot(ground_truth)
+    try:
+        df_results = mot_results.to_dataframe()
+    except AttributeError:
+        df_results = load_any_mot(mot_results).to_dataframe()
     if results_keypoint is not None:
         df_results = df_results[df_results.keypoint == results_keypoint]
+    df_gt = df_gt.set_index(["frame", "id"])
     df_results = df_results.set_index(["frame", "id"])
     print("Evaluating...")
-    assert sys.version_info >= (3, 5), "motmetrics requires Python 3.5"
     summary, acc = eval_mot(df_gt, df_results)
     summary["motp_px"] = np.sqrt(
         summary["motp"]
@@ -314,94 +324,3 @@ def results_to_mot(results):
         df["height"] = -1
     df["confidence"] = -1
     return df
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Convert and visualize mot ground truth and results."
-    )
-    parser.add_argument(
-        "--load-tox",
-        type=str,
-        help="load ToxTracker trajectories (e.g., Tracking_0.txt)",
-    )
-    parser.add_argument(
-        "--tox-topleft-xy",
-        nargs="+",
-        type=int,
-        help="position of the arena top left corner, see first tuple in the Arena line in Stats_1.txt",
-    )
-    parser.add_argument(
-        "--load-idtracker",
-        type=str,
-        help="load IdTracker trajectories (e.g., trajectories.txt)",
-    )
-    parser.add_argument(
-        "--load-idtrackerai",
-        type=str,
-        help="load idtracker.ai trajectories (e.g., trajectories_wo_gaps.npy)",
-    )
-    parser.add_argument(
-        "--load-sleap-analysis",
-        type=str,
-        help="load SLEAP analysis trajectories (exported from sleap-label File -> Export Analysis HDF5)",
-    )
-    parser.add_argument(
-        "--load-mot", type=str, nargs="+", help="load a MOT challenge csv file(s)"
-    )
-    parser.add_argument(
-        "--load-gt", type=str, help="load ground truth from a MOT challenge csv file"
-    )
-    parser.add_argument("--video-in", type=str, help="input video file")
-    parser.add_argument(
-        "--video-out", type=str, help="write visualization(s) to a video file"
-    )
-    parser.add_argument(
-        "--write-mot", type=str, help="write trajectories to a MOT challenge csv file"
-    )
-    parser.add_argument("--eval", action="store_true", help="evaluate results")
-    parser.add_argument(
-        "--write-eval", type=str, help="write evaluation results as a csv file"
-    )
-    # parser.add_argument('--mot_keypoint_idx', type=int, help='keypoint of ')
-    parser.add_argument(
-        "--input-names", type=str, nargs="+", help="names of input MOT files"
-    )
-    args = parser.parse_args()
-
-    if args.load_tox:
-        assert (
-            args.tox_topleft_xy
-        ), "specify position of the arena top left corner using --tox-topleft-xy"
-        assert len(
-            args.tox_topleft_xy
-        ), "need to pass exactly two values with --tox-topleft-xy"
-        dfs = [load_toxtrac(args.load_tox, topleft_xy=args.tox_topleft_xy)]
-    elif args.load_idtracker:
-        dfs = [load_idtracker(args.load_idtracker)]
-    elif args.load_idtrackerai:
-        dfs = [load_idtrackerai(args.load_idtrackerai)]
-    elif args.load_sleap_analysis:
-        dfs = [load_posemot_sleap_analysis(args.load_sleap_analysis).to_dataframe()]
-    elif args.load_mot:
-        dfs = [load_mot(mot) for mot in args.load_mot]
-    else:
-        assert False, "no input files specified"
-
-    if args.write_mot:
-        assert len(dfs) == 1
-        save_mot(args.write_mot, dfs[0])
-
-    if args.eval or args.write_eval:
-        assert args.load_gt
-        assert (
-            len(args.load_mot) == 1
-        ), "only single input file can be specified for evaluation"
-        eval_and_save(args.load_gt, args.load_mot[0], args.write_eval, 1)
-
-    if args.video_out:
-        assert args.video_in
-        # assert False, ''
-        visualize(args.video_in, args.video_out, dfs, args.input_names)  # , duration=3)

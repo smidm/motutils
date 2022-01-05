@@ -5,7 +5,7 @@ import motutils
 
 class VisualizeTestCase(unittest.TestCase):
     def test_visualize(self):
-        gt = motutils.Mot("tests/data/Sowbug3_cut.txt")
+        gt = motutils.Mot("tests/data/Sowbug3_cut.csv")
         motutils.visualize(
             "tests/data/Sowbug3_cut.mp4",
             "tests/out/Sowbug3_cut_visualize.mp4",
@@ -14,8 +14,8 @@ class VisualizeTestCase(unittest.TestCase):
         )
 
     def test_visualize_posemot(self):
-        pose_gt = motutils.PoseMot(filename="tests/data/Sowbug3_cut_pose.csv")
-        gt = motutils.Mot(filename="tests/data/Sowbug3_cut.txt")
+        pose_gt = motutils.PoseMot(filename_or_buffer="tests/data/Sowbug3_cut_pose.csv")
+        gt = motutils.Mot(filename_or_buffer="tests/data/Sowbug3_cut.csv")
         motutils.visualize(
             "tests/data/Sowbug3_cut.mp4",
             "tests/out/Sowbug3_cut_visualize_pose.mp4",

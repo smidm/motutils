@@ -10,7 +10,7 @@ class OracleDetector(motutils.OracleDetectorMixin, motutils.Mot):
 class GTDetectorTestCase(unittest.TestCase):
     def test_detect(self):
         self.detector = OracleDetector(
-            filename="tests/data/Sowbug3_cut.txt",
+            filename_or_buffer="tests/data/Sowbug3_cut.csv",
             bb_size_px=70,
             fp_prob=0.05,
             fn_prob=0.001,
@@ -23,7 +23,7 @@ class GTDetectorTestCase(unittest.TestCase):
 
     def test_fn1(self):
         self.detector = OracleDetector(
-            filename="tests/data/Sowbug3_cut.txt",
+            filename_or_buffer="tests/data/Sowbug3_cut.csv",
             bb_size_px=70,
             fp_prob=0,
             fn_prob=1,
@@ -34,7 +34,7 @@ class GTDetectorTestCase(unittest.TestCase):
 
     def test_no_fp_fn(self):
         self.detector = OracleDetector(
-            filename="tests/data/Sowbug3_cut.txt",
+            filename_or_buffer="tests/data/Sowbug3_cut.csv",
             bb_size_px=70,
             fp_prob=0,
             fn_prob=0,
