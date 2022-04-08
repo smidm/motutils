@@ -68,28 +68,28 @@ class MotTestCase(unittest.TestCase):
         # fr id x                   y
         # 1, 1, 434.48703703703706, 279.04814814814813, -1, -1, 1
         self.gt.add_delta(delta_x=-434)
-        pos = self.gt.get_positions(frame=0).sel({"id": 1})
+        pos = self.gt.get_positions(frame=0).sel({"id": 0})
         self.assertAlmostEqual(pos["x"].item(), 0, 0)
         self.assertAlmostEqual(pos["y"].item(), 279, 0)
 
         self.gt.add_delta(delta_x=434)
-        pos = self.gt.get_positions(frame=0).sel({"id": 1})
+        pos = self.gt.get_positions(frame=0).sel({"id": 0})
         self.assertAlmostEqual(pos["x"].item(), 434, 0)
         self.assertAlmostEqual(pos["y"].item(), 279, 0)
 
         self.gt.add_delta(delta_y=-279)
-        pos = self.gt.get_positions(frame=0).sel({"id": 1})
+        pos = self.gt.get_positions(frame=0).sel({"id": 0})
         self.assertAlmostEqual(pos["x"].item(), 434, 0)
         self.assertAlmostEqual(pos["y"].item(), 0, 0)
 
         self.gt.add_delta(delta_y=279)
-        pos = self.gt.get_positions(frame=0).sel({"id": 1})
+        pos = self.gt.get_positions(frame=0).sel({"id": 0})
         self.assertAlmostEqual(pos["x"].item(), 434, 0)
         self.assertAlmostEqual(pos["y"].item(), 279, 0)
 
         self.gt.add_delta(delta_frames=2)
         self.assertAlmostEqual(self.gt.min_frame(), 2)
-        pos = self.gt.get_positions(frame=2).sel({"id": 1})
+        pos = self.gt.get_positions(frame=2).sel({"id": 0})
         self.assertAlmostEqual(pos["x"].item(), 434, 0)
         self.assertAlmostEqual(pos["y"].item(), 279, 0)
 
@@ -99,8 +99,8 @@ class MotTestCase(unittest.TestCase):
         <xarray.Dataset>
         Dimensions:     (id: 5)
         Coordinates:
-            frame       int64 1
-          * id          (id) int64 1 2 3 4 5
+            frame       int64 0
+          * id          (id) int64 0 1 2 3 4
         Data variables:
             x           (id) float64 434.5 278.2 179.2 180.0 155.2
             y           (id) float64 280.1 293.7 407.9 430.0 396.3
@@ -114,11 +114,11 @@ class MotTestCase(unittest.TestCase):
         )
 
         assert_array_almost_equal(
-            frame_pos.sel({"id": 1})[["x", "y"]].to_array(), [434.46, 280.12], 1
+            frame_pos.sel({"id": 0})[["x", "y"]].to_array(), [434.46, 280.12], 1
         )
 
-        self.assertAlmostEqual(frame_pos.sel({"id": 1})["x"].item(), 434.46, 1)
-        self.assertAlmostEqual(frame_pos.sel({"id": 1})["y"].item(), 280.12, 1)
+        self.assertAlmostEqual(frame_pos.sel({"id": 0})["x"].item(), 434.46, 1)
+        self.assertAlmostEqual(frame_pos.sel({"id": 0})["y"].item(), 280.12, 1)
 
     def test_get_xy_numpy(self):
         xy = self.gt.get_xy_numpy(0)
@@ -135,10 +135,10 @@ class MotTestCase(unittest.TestCase):
         4       1  180.000000  430.000000    NaN     NaN         1.0
         5       1  155.188525  396.309836    NaN     NaN         1.0
         """
-        self.assertAlmostEqual(df.loc[1].x, 434.46, 1)
-        self.assertAlmostEqual(df.loc[1].y, 280.12, 1)
+        self.assertAlmostEqual(df.loc[0].x, 434.46, 1)
+        self.assertAlmostEqual(df.loc[0].y, 280.12, 1)
         for pos_id, row in df.iterrows():
-            self.assertEqual(pos_id, 1)
+            self.assertEqual(pos_id, 0)
             self.assertAlmostEqual(row.x, 434.46, 1)
             self.assertAlmostEqual(row.y, 280.12, 1)
             break
@@ -161,7 +161,7 @@ class MotTestCase(unittest.TestCase):
         gt_bbox = BBox.from_xycenter_wh(154.97, 397, 10, 10, frame=0)
         matched_bbox = self.gt.match_bbox(gt_bbox)
         self.assertEqual(matched_bbox.frame, 0)
-        self.assertEqual(matched_bbox.obj_id, 5)
+        self.assertEqual(matched_bbox.obj_id, 4)
 
         no_match_bbox = BBox(1000, 1000, 1010, 1010, 0)
         matched_bbox = self.gt.match_bbox(no_match_bbox)
@@ -171,7 +171,7 @@ class MotTestCase(unittest.TestCase):
         self.gt.bbox_size_px = 10
         gt_bbox = BBox.from_xycenter_wh(154.97, 397, 10, 10, frame=0)
         obj_id = self.gt.get_matching_obj_id(gt_bbox)
-        self.assertEqual(obj_id, 5)
+        self.assertEqual(obj_id, 4)
 
         no_match_bbox = BBox(1000, 1000, 1010, 1010, 0)
         obj_id = self.gt.get_matching_obj_id(no_match_bbox)
@@ -187,7 +187,7 @@ class MotTestCase(unittest.TestCase):
         ds = self.gt.match_xy(0, (1000, 1000), 100)
         self.assertTrue(ds is None)
         ds = self.gt.match_xy(0, (180, 430), 1)
-        self.assertEqual(ds.id, 4)
+        self.assertEqual(ds.id, 3)
         """
         <xarray.Dataset>
         Dimensions:     (id: 5)
@@ -254,7 +254,7 @@ class MotTestCase(unittest.TestCase):
         csv_file = io.StringIO(csv_str)
         other = motutils.Mot(csv_file)
         mapping = self.gt.find_mapping(other)
-        self.assertEqual(mapping, {1: 2, 2: 1, 3: 3, 4: 4, 5: 5})
+        self.assertEqual(mapping, {0: 1, 1: 0, 2: 2, 3: 3, 4: 4})
 
     def test_get_object_distance(self):
         self.gt.get_object_distance(0, 1, self.gt.get_object(10, 1))
