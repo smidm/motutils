@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/smidm/motutils.svg?branch=main)](https://travis-ci.com/smidm/motutils)
+[![Build Status](https://travis-ci.com/smidm/motutils.svg?branch=main)](https://app.travis-ci.com/github/smidm/motutils)
 
 `motutils` is a Python package for multiple object tracking research with focus on laboratory animals tracking.
 
