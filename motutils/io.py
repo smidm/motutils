@@ -17,6 +17,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import tqdm
 
 from .bbox_mot import BboxMot
 from .mot import Mot
@@ -154,7 +155,7 @@ def load_toxtrac(filename_or_buffer, topleft_xy=(0, 0)):
     return df
 
 
-def load_posemot_sleap_analysis(filename_or_buffer, num_objects=None):
+def load_sleap_analysis_as_posemot(filename_or_buffer, num_objects=None):
     """
 
     :param filename_or_buffer:
@@ -187,9 +188,54 @@ def load_posemot_sleap_analysis(filename_or_buffer, num_objects=None):
     return mot
 
 
-# def load_posemot_sleap(filename_or_buffer, num_objects=None):
-#     import sleap
-#     # TODO
+def load_sleap_as_dataframe(filename):
+    try:
+        import sleap
+    except ImportError as exception:
+        exception.msg = """
+io.load_sleap_to_dataframe() requires the sleap module installed. Either install the module or export analysis file from
+sleap-label application and use load_posemot_sleap_analysis() without additional dependencies.
+        """
+        raise exception
+
+    labels = sleap.load_file(filename)
+
+    points = []
+    for frame in tqdm.tqdm(labels):
+        for instance in frame:
+            for node_name, point in zip(labels.skeleton.node_names, instance):
+                try:
+                    score = point.score
+                except AttributeError:
+                    score = -1
+                if isinstance(instance, sleap.instance.PredictedInstance):
+                    instance_class = 'predicted'
+                elif isinstance(instance, sleap.instance.Instance):
+                    instance_class = 'manual'
+                else:
+                    assert False, 'unknown instance type: {}'.format(type(instance))
+                points.append((point.x, point.y, score, point.visible, node_name, instance.frame_idx,
+                               instance.track.name, instance_class, instance.video.backend.filename))
+
+    df = pd.DataFrame(points, columns=['x', 'y', 'score', 'visible', 'bodypart', 'frame',
+                                       'track', 'source', 'video'])
+    df['keypoint'] = df.bodypart.apply(labels.skeleton.node_names.index)
+    return df
+
+
+def load_sleap_as_posemot(filename):
+    df = load_sleap_as_dataframe(filename)
+    df['id'] = df.track.str.split('_', expand=True)[1].astype(int)  # default SLEAP track naming "track_<num>"
+    df = df.rename(columns={'score': 'confidence'})
+    df = df.set_index(["frame", "id", "keypoint"])
+
+    # remove duplicated instance with preference to manually annotated
+    df_predicted = df.query('source == "predicted"')
+    df_manual = df.query('source == "manual"')
+    df_unique = df_predicted.copy()
+    df_unique.loc[df_manual.index] = df_manual
+    assert df_unique.index.is_unique
+    return PoseMot.from_df(df_unique.reset_index())
 
 
 def save_mot(filename, df):

@@ -14,7 +14,7 @@ class IOTestCase(unittest.TestCase):
         self.assertEqual(gt.num_ids(), 5)
 
     def test_load_posemot_sleap_analysis(self):
-        io.load_posemot_sleap_analysis("tests/data/sample_sleap.analysis.h5")
+        io.load_sleap_analysis_as_posemot("tests/data/sample_sleap.analysis.h5")
 
     def test_load_idtracker(self):
         df = io.load_idtracker("tests/data/idtracker/trajectories.txt")

@@ -1,4 +1,8 @@
 import click
+import tqdm
+import imageio
+from pathlib import Path
+import numpy as np
 
 from . import io
 from . import visualize as motutils_visualize
@@ -36,6 +40,12 @@ from .mot import Mot
     help="load SLEAP analysis trajectories (exported from sleap-label File -> Export Analysis HDF5)",
 )
 @click.option(
+    "--load-sleap",
+    multiple=True,
+    type=click.Path(exists=True, readable=True, dir_okay=False),
+    help="load SLEAP trajectories",
+)
+@click.option(
     "--load-toxtrac",
     multiple=True,
     type=click.File(),
@@ -55,13 +65,17 @@ def cli(
     load_idtracker,
     load_idtrackerai,
     load_sleap_analysis,
+    load_sleap,
     load_toxtrac,
     toxtrac_topleft_xy,
 ):
     mots = []
     mots.extend([io.load_any_mot(filename) for filename in load_mot])
     mots.extend(
-        [io.load_posemot_sleap_analysis(filename) for filename in load_sleap_analysis]
+        [io.load_sleap_analysis_as_posemot(filename) for filename in load_sleap_analysis]
+    )
+    mots.extend(
+        [io.load_sleap_as_posemot(filename) for filename in load_sleap]
     )
     dfs = []
     dfs.extend([io.load_idtracker(filename) for filename in load_idtracker])
