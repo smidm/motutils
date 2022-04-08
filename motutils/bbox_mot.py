@@ -62,7 +62,10 @@ class BboxMot(Mot):
             filename,
             index_col=["frame", "id"],
             names=["frame", "id", "x", "y", "width", "height", "confidence"],
-            converters={"frame": lambda x: int(x) - 1},
+            converters={
+                "frame": lambda x: int(x) - 1,
+                "id": lambda x: int(x) - 1,
+            },
         )
         df[df == -1] = np.nan
         ds = df.to_xarray()
@@ -81,6 +84,7 @@ class BboxMot(Mot):
         df = self.ds.to_dataframe().reset_index()
         df[df.isna()] = -1
         df["frame"] += 1
+        df["id"] += 1
         df.to_csv(filename, index=False, header=False)
 
     def get_bboxes(self, frame):

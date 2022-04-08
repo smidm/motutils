@@ -291,9 +291,9 @@ def eval_and_save(ground_truth, mot_results, out_csv=None, results_keypoint=None
         summary.to_csv(out_csv, index=False)
 
 
-def results_to_mot(results):
+def array_to_mot_dataframe(results):
     """
-    Create MOT challenge format DataFrame out of trajectories array.
+    Create MOT challenge format DataFrame out of 3 dimensional array of trajectories.
 
     :param results: ndarray, shape=(n_frames, n_animals, 2 or 4); coordinates are in yx order, nan when id not present
     :return: DataFrame with frame, id, x, y, width, height and confidence columns

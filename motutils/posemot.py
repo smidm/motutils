@@ -1,4 +1,5 @@
 from itertools import product
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -11,6 +12,19 @@ from .mot import Mot
 class PoseMot(Mot):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    @classmethod
+    def from_df(cls, df):
+        assert "frame" in df
+        assert "id" in df
+        assert "keypoint" in df
+        assert "x" in df
+        assert "y" in df
+        mot = cls()
+        mot.ds = df.set_index(["frame", "id", "keypoint"])[['x', 'y', 'confidence']].to_xarray()
+        if "confidence" not in mot.ds:
+            mot.ds["confidence"] = ("frame", "id"), np.ones_like(mot.ds["x"]) * -1
+        return mot
 
     def init_blank(self, frames, ids, n_points=1):
         """
@@ -55,7 +69,10 @@ class PoseMot(Mot):
         df = pd.read_csv(
             filename_or_buffer,
             index_col=["frame", "id", "keypoint"],
-            converters={"frame": lambda x: int(x) - 1},
+            converters={
+                "frame": lambda x: int(x) - 1,
+                "id": lambda x: int(x) - 1,
+            }
         )
         df[df == -1] = np.nan
         ds = df.to_xarray()
@@ -85,7 +102,6 @@ class PoseMot(Mot):
     def to_dataframe(self):
         df = self.ds.to_dataframe().reset_index()
         df[df.isna()] = -1
-        df["frame"] += 1
         return df
 
     def get_bboxes(self, frame):
@@ -193,7 +209,11 @@ class PoseMot(Mot):
             ((self_pos[["x", "y"]] - other[["x", "y"]]).to_array() ** 2).sum()
         )
 
-    def draw(self, frames=None, ids=None, marker=None, keypoint=0):
+    def draw(self,
+             frames: Optional[List[int]] = None,
+             ids: Optional[List[int]] = None,
+             marker: Optional[str] = None,
+             keypoint: int = 0):
         import matplotlib.pylab as plt
 
         if frames is None:

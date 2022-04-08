@@ -19,7 +19,7 @@ class Mot(object):
 
     def __init__(self, filename_or_buffer=None, **kwargs):
         """
-        Ground truth stored in xarray.Dataset with frame and id coordinates (frames are 0-indexed).
+        xarray.Dataset backend with frame and id coordinates (frames are 0-indexed).
 
         Example:
 
@@ -85,13 +85,15 @@ class Mot(object):
 
     def load(self, filename_or_buffer):
         """
-        Load trajectories of multiple objects from CSV file.
+        Load trajectories of multiple objects from CSV file in motchallenge format
+
+        https://github.com/JonathonLuiten/TrackEval/blob/master/docs/MOTChallenge-Official/Readme.md#data-format=
 
         -1 are replaced by nans
 
         Columns:
-        - frame (first frame is 1, is converted to 0 during loading)
-        - id (arbitrary numbered)
+        - frame (first frame is 1, converted to 0-based on load)
+        - id (1-based numbering, converted to 0-based on load)
         - x
         - y
         - confidence
@@ -101,7 +103,10 @@ class Mot(object):
         df = pd.read_csv(
             filename_or_buffer,
             index_col=["frame", "id"],
-            converters={"frame": lambda x: int(x) - 1},
+            converters={
+                "frame": lambda x: int(x) - 1,
+                "id": lambda x: int(x) - 1,
+            },
         )
         df[df == -1] = np.nan
         ds = df.to_xarray()
@@ -112,11 +117,13 @@ class Mot(object):
     def to_dataframe(self):
         df = self.ds.to_dataframe().reset_index()
         df[df.isna()] = -1
-        df["frame"] += 1
         return df
 
     def save(self, filename, float_precision=1):
-        self.to_dataframe().to_csv(
+        df = self.to_dataframe()
+        df["frame"] += 1  # motchallenge format has 1-based frame numbering
+        df["id"] += 1  # motchallenge format has 1-based id numbering
+        df.to_csv(
             filename, index=False, float_format="%." + str(float_precision) + "f"
         )
 
