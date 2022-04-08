@@ -110,7 +110,7 @@ Options:
 Dimensions:     (frame: 4500, id: 5)
 Coordinates:
   * frame       (frame) int64 0 1 2 3 4 5 6 ... 4494 4495 4496 4497 4498 4499
-  * id          (id) int64 1 2 3 4 5
+  * id          (id) int64 0 1 2 3 4
 Data variables:
     x           (frame, id) float64 434.5 277.7 179.2 ... 185.3 138.6 420.2
     y           (frame, id) float64 279.0 293.6 407.9 ... 393.3 387.2 294.7
@@ -124,12 +124,12 @@ Data variables:
 >>> mot.count_missing()
 0
 
->>> mot.get_object(frame=1, obj_id=2)
+>>> mot.get_object(frame=1, obj_id=1)
 <xarray.Dataset>
 Dimensions:     ()
 Coordinates:
     frame       int64 1
-    id          int64 2
+    id          int64 1
 Data variables:
     x           float64 278.2
     y           float64 293.7
@@ -142,7 +142,7 @@ Data variables:
 Dimensions:     ()
 Coordinates:
     frame       int64 1
-    id          int64 2
+    id          int64 1
 Data variables:
     x           float64 278.2
     y           float64 293.7
