@@ -322,8 +322,8 @@ def eval_and_save(ground_truth, mot_results, out_csv=None, results_keypoint=None
         df_results = load_any_mot(mot_results).to_dataframe()
     if results_keypoint is not None:
         df_results = df_results[df_results.keypoint == results_keypoint]
-    df_gt = df_gt.set_index(["frame", "id"])
-    df_results = df_results.set_index(["frame", "id"])
+    df_gt = df_gt.rename(columns={"frame": "FrameId", "id": "Id"}).set_index(["FrameId", "Id"])
+    df_results = df_results.rename(columns={"frame": "FrameId", "id": "Id"}).set_index(["FrameId", "Id"])
     print("Evaluating...")
     summary, acc = eval_mot(df_gt, df_results)
     summary["motp_px"] = np.sqrt(
