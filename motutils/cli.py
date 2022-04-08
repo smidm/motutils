@@ -171,7 +171,3 @@ def eval(ctx, write_eval, keypoint):
         write_eval,
         keypoint if keypoint != -1 else None,
     )
-
-
-if __name__ == "__main__":
-    cli()
