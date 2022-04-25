@@ -45,7 +45,7 @@ setup(
         "scipy",
         "tqdm",
         "xarray",
-        "shapes @ git+https://github.com/smidm/shapes#egg=shapes",
+        "shape",
     ],
     # read('requirements.txt', requirements=True),
     extras_require={"sleap": "sleap"},

@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 from numpy.testing import assert_array_almost_equal
-from shapes import BBox
+from shape import BBox
 
 import motutils
 

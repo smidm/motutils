@@ -7,7 +7,7 @@ import pandas as pd
 import scipy.optimize
 import tqdm
 import xarray as xr
-from shapes import BBox
+from shape import BBox
 
 
 class Mot(object):

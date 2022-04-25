@@ -4,7 +4,7 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 import xarray as xr
-from shapes import BBox
+from shape import BBox
 
 from .mot import Mot
 

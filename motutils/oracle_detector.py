@@ -1,5 +1,5 @@
 import numpy as np
-from shapes import BBox
+from shape import BBox
 
 
 class OracleDetectorMixin(object):
