@@ -12,6 +12,7 @@ from .mot import Mot
 class PoseMot(Mot):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self._visualization_color_by_keypoints = False
 
     @classmethod
     def from_df(cls, df):
@@ -164,6 +165,18 @@ class PoseMot(Mot):
         else:
             return None
 
+    @property
+    def visualization_color_by_keypoints(self):
+        return self._visualization_color_by_keypoints
+
+    @visualization_color_by_keypoints.setter
+    def visualization_color_by_keypoints(self, value):
+        self._visualization_color_by_keypoints = value
+        if value:
+            self.color_ids = self.ds.keypoint.values
+        else:
+            self.color_ids = self.ds.id.values
+
     def draw_frame(
         self, img, frame, mapping=None, keypoints=None, alternative_marker=False
     ):
@@ -180,7 +193,10 @@ class PoseMot(Mot):
                 row = self.ds.sel(dict(frame=frame, id=obj_id, keypoint=keypoint_id))
                 if not (np.isnan(row.x) or np.isnan(row.y)):
                     if not alternative_marker:
-                        marker = self.markers[mapping[obj_id]]
+                        if self.visualization_color_by_keypoints:
+                            marker = self.markers[mapping[keypoint_id]]
+                        else:
+                            marker = self.markers[mapping[obj_id]]
                         img = blit(
                             marker["img"],
                             img,
@@ -192,12 +208,16 @@ class PoseMot(Mot):
                         )
                     else:
                         import cv2
+                        if self.visualization_color_by_keypoints:
+                            color = self.colors[mapping[keypoint_id]]
+                        else:
+                            color = self.colors[mapping[obj_id]]
 
                         cv2.circle(
                             img,
                             (int(row.x), int(row.y)),
                             int(round(self.marker_radius * 1.5)),
-                            [int(c) for c in self.colors[mapping[obj_id]]],
+                            [int(c) for c in color],
                             2,
                             cv2.LINE_AA,
                         )

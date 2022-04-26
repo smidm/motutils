@@ -2,6 +2,7 @@ import numbers
 import warnings
 from collections import Counter
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.optimize
@@ -42,7 +43,10 @@ class Mot(object):
         self.marker_radius = 8
         self.marker_position = None
         self.markers = None
-        self.colors = None
+        self._colormap_name = "gist_rainbow"
+        self._colormap = None
+        self._color_ids = None
+        self._colors = None
 
         if filename_or_buffer is not None:
             self.load(filename_or_buffer)
@@ -410,6 +414,60 @@ class Mot(object):
             if not pos["x"].isnull().all() and not pos["y"].isnull().all():
                 plt.plot(pos["x"], pos["y"], label=obj_id, marker=marker)
 
+    @property
+    def colormap_name(self):
+        """
+        Name of
+        :return:
+        """
+        return self._colormap_name
+
+    @colormap_name.setter
+    def colormap_name(self, value):
+        self._colormap_name = value
+        self.colormap = None
+
+    @property
+    def colormap(self):
+        if self._colormap is None:
+            self._colormap = plt.get_cmap(self.colormap_name)
+        return self._colormap
+
+    @colormap.setter
+    def colormap(self, value):
+        self._colormap = value
+        self.colors = None
+
+    @property
+    def color_ids(self):
+        if self._color_ids is None:
+            assert self.ds, 'object data has to be initialized when requesting visualization colors'
+            self._color_ids = self.ds.id.values
+        return self._color_ids
+
+    @color_ids.setter
+    def color_ids(self, value):
+        self._color_ids = value
+        self._colors = None
+
+    @property
+    def colors(self):
+        if self._colors is None:
+            self._colors = dict(
+                zip(
+                    self.color_ids,
+                    [
+                        self.colormap(1.0 * i / len(self.color_ids), bytes=True)[:3]
+                        for i in range(len(self.color_ids))
+                    ],
+                )
+            )
+        return self._colors
+
+    @colors.setter
+    def colors(self, value):
+        self._colors = value
+
     def _init_draw(self):
         import matplotlib.pylab as plt
 
@@ -437,33 +495,19 @@ class Mot(object):
                 vector=[1],
             )
 
-        if self.colors is None:
-            cm = plt.get_cmap("gist_rainbow")
-            self.colors = dict(
-                list(
-                    zip(
-                        self.ds.id.data,
-                        [
-                            cm(1.0 * i / len(self.ds.id), bytes=True)[:3]
-                            for i in range(len(self.ds.id))
-                        ],
-                    )
-                )
-            )
-
         blur = self.marker_radius * 0.2
         img_dim = self.marker_radius * 2 + 1
         img_size = (img_dim, img_dim)
         self.marker_position = (self.marker_radius, self.marker_radius)
         self.markers = {}
-        for obj_id, c in list(self.colors.items()):
+        for idx, c in self.colors.items():
             img = circle(
                 img_size, self.marker_position, self.marker_radius, c, blur=blur
             )
             mask = circle(
                 img_size, self.marker_position, self.marker_radius, 1, blur=blur
             )
-            self.markers[obj_id] = {"img": img, "mask": mask}
+            self.markers[idx] = {"img": img, "mask": mask}
 
     def draw_frame(self, img, frame, mapping=None):
         """

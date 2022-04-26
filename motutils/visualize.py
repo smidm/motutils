@@ -1,3 +1,9 @@
+from typing import Optional, Union, List, Callable, Any, Tuple
+try:
+    from numpy.typing import ArrayLike
+except ModuleNotFoundError:
+    ArrayLike = Any
+import os
 import cv2  # TODO: remove dependency
 import numpy as np
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip, clips_array
@@ -5,21 +11,10 @@ from moviepy.video.fx.resize import resize
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.video.VideoClip import ColorClip, TextClip
 
-from .mot import Mot
-
 
 def process_image(get_frame_fun, t, trajectories, name, id_to_gt, fps):
     """
     Draw single tracker data on a frame.
-
-    :param img:
-    :param trajectories:
-    :param name:
-    :param markers:
-    :param marker_pos:
-    :param counter:
-    :param id_to_gt: list or dict, maps df ids to ground truth ids, used to display same markers for all results
-    :return:
     """
     # if id_to_gt is None:
     #     id_to_gt = range(len(markers))  # identity mapping
@@ -50,15 +45,6 @@ def process_image_behavior(
 ):
     """
     Draw single tracker data on a frame.
-
-    :param img:
-    :param trajectories:
-    :param name:
-    :param markers:
-    :param marker_pos:
-    :param counter:
-    :param id_to_gt: list or dict, maps df ids to ground truth ids, used to display same markers for all results
-    :return:
     """
     # if id_to_gt is None:
     #     id_to_gt = range(len(markers))  # identity mapping
@@ -132,16 +118,33 @@ def plot_frame_to_plot_time(fun, fps):
 
 
 def visualize(
-    video_file,
-    out_video_file,
-    funs,
-    names=None,
-    montage_max_wh=(1920, 1200),
-    duration=None,
-    montage=True,
-    write_video=True,
-    start_end_frame=None,
-):
+    video_file: Union[str, bytes, os.PathLike],
+    out_video_file: Optional[Union[str, bytes, os.PathLike]],
+    funs: List[Callable[[ArrayLike, int], ArrayLike]],
+    names: Optional[List[str]] = None,
+    montage_max_wh: Tuple[int, int] = (1920, 1200),
+    duration: Optional[float] = None,
+    montage: bool = True,
+    start_end_frame: Optional[Tuple[Optional[int], Optional[int]]] = None,
+) -> VideoFileClip:
+    """
+    Render a video with annotated objects.
+
+    Supports:
+    - multiple annotation sources
+    - montage or overlaid visualization types for comparison of multiple annotations
+
+    :param video_file: input video filename
+    :param out_video_file: optional output video filename
+    :param funs: list of drawing functions with signature of Mot.draw_frame()
+    :param names: optional list of names of annotation sources
+    :param montage_max_wh: maximum video size in pixels
+    :param duration: maximal duration in seconds
+    :param montage: if multiple annotation sources in funs and True: render montage of videos,
+                    if multiple annotation sources in funs and False render overlaid annotations over a single video
+    :param start_end_frame: optional specification of start and end frame of visualization
+    :return: visualization video clip object
+    """
     if start_end_frame is None:
         start_end_frame = (0, None)
     MONTAGE_GRID_WH = [
@@ -214,79 +217,7 @@ def visualize(
     ]
     out_clip = out_clip.subclip(*start_end)
 
-    if write_video:
+    if out_video_file:
         out_clip.write_videofile(out_video_file)  # , threads=4
-    else:
-        return out_clip
 
-
-if __name__ == "__main__":
-    import argparse
-
-    from .io import load_any_mot, load_idtracker, load_idtrackerai, load_toxtrac
-
-    parser = argparse.ArgumentParser(description="Visualize mot trajectories.")
-    parser.add_argument("video_in", type=str, help="input video file")
-    parser.add_argument(
-        "video_out", type=str, help="write visualization(s) to a video file"
-    )
-    parser.add_argument(
-        "--load-tox",
-        type=str,
-        help="load ToxTracker trajectories (e.g., Tracking_0.txt)",
-    )
-    parser.add_argument(
-        "--tox-topleft-xy",
-        nargs="+",
-        type=int,
-        help="position of the arena top left corner, see first tuple in the Arena line in Stats_1.txt",
-    )
-    parser.add_argument(
-        "--load-idtracker",
-        type=str,
-        help="load IdTracker trajectories (e.g., trajectories.txt)",
-    )
-    parser.add_argument(
-        "--load-idtrackerai",
-        type=str,
-        help="load idtracker.ai trajectories (e.g., trajectories_wo_gaps.npy)",
-    )
-    parser.add_argument(
-        "--load-mot",
-        type=str,
-        nargs="+",
-        help="load multiple object trajectories file(s)",
-    )
-    parser.add_argument("--names", type=str, nargs="+", help="names of input files")
-    args = parser.parse_args()
-
-    mots = []
-    if args.load_tox:
-        if not args.tox_topleft_xy:
-            parser.error(
-                "specify position of the arena top left corner using --tox-topleft-xy"
-            )
-        if len(args.tox_topleft_xy) != 2:
-            parser.error("need to pass exactly two values with --tox-topleft-xy")
-        mots.append(
-            Mot.from_df(load_toxtrac(args.load_tox, topleft_xy=args.tox_topleft_xy))
-        )
-
-    if args.load_idtracker:
-        mots.append(Mot.from_df(load_idtracker(args.load_idtracker)))
-
-    if args.load_idtrackerai:
-        mots.append(Mot.from_df(load_idtrackerai(args.load_idtrackerai)))
-
-    if args.load_mot:
-        mots.extend([load_any_mot(filename) for filename in args.load_mot])
-
-    if not mots:
-        parser.error("no input trajectories specified, see --load options")
-
-    def plot_mot(mot):
-        return lambda img, frame: mot.draw_frame(img, frame)
-
-    visualize(
-        args.video_in, args.video_out, [plot_mot(mot) for mot in mots], args.names
-    )  # , duration=1)
+    return out_clip

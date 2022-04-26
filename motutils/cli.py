@@ -114,7 +114,12 @@ def cli(
 )
 @click.argument("source-display-name", nargs=-1)
 @click.option("--limit-duration", help="visualization duration limit in s", default=-1)
-def visualize(ctx, video_in, video_out, source_display_name, limit_duration):
+@click.option("--montage/--no-montage",
+              help="choose between multiple video montage or a single overlaid video",
+              default=True)
+@click.option('--color-ids', 'visualization_colors', flag_value='ids', default=True)
+@click.option('--color-keypoints', 'visualization_colors', flag_value='keypoints')
+def visualize(ctx, video_in, video_out, source_display_name, limit_duration, montage, visualization_colors):
     """
     Visualize MOT file(s) overlaid on a video.
     """
@@ -134,11 +139,41 @@ def visualize(ctx, video_in, video_out, source_display_name, limit_duration):
         )
     if not mots:
         raise click.BadParameter("missing at least one input file")
+    visualization_colors_used = False
+    if visualization_colors == 'keypoints':
+        for mot in mots:
+            try:
+                mot.visualization_color_by_keypoints = True
+                visualization_colors_used = True
+            except AttributeError:
+                pass
+        if not visualization_colors_used:
+            raise click.BadParameter(
+                "color-keypoints is available only for input data with keypoints"
+            )
+    # overlaid visualization: create copies of the first mot colormap with decreasing intensity for other mots
+    # if not montage and len(mots) > 1:
+    #     from matplotlib.colors import ListedColormap
+    #     alpha_values = np.linspace(1., 0., len(mots) + 1)[:-1]
+    #     for mot, alpha in zip(mots[1:], alpha_values[1:]):
+    #         new_cmap = mots[0].colormap(np.arange(mots[0].colormap.N))
+    #         new_cmap[:, 0:3] *= alpha
+    #         mot.colormap = ListedColormap(new_cmap)
+
+    if not montage and len(mots) == 2:
+        draw_funs = [
+            mots[0].draw_frame,
+            lambda img, frame: mots[1].draw_frame(img, frame, alternative_marker=True),
+        ]
+    else:
+        draw_funs = [mot.draw_frame for mot in mots]
+
     motutils_visualize(
         video_in,
         video_out,
-        [mot.draw_frame for mot in mots],
+        draw_funs,
         names,
+        montage=montage,
         duration=limit_duration if limit_duration != -1 else None,
     )
 
