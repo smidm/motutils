@@ -22,7 +22,7 @@ def read(*names, **kwargs):
 
 setup(
     name="motutils",
-    version="0.1.1",
+    version="0.1.2",
     license="MIT",
     description="utilities for multiple object tracking research (io, visualization, format conversion)",
     long_description=re.compile("^.. start-badges.*^.. end-badges", re.M | re.S).sub(

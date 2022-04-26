@@ -2,7 +2,7 @@
 
 __author__ = """Matěj Šmíd"""
 __email__ = "m@matejsmid.cz"
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 from .bbox_mot import BboxMot
 from .mot import GtPermutationsMixin, Mot
