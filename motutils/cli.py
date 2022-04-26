@@ -118,8 +118,10 @@ def cli(
 @click.option("--montage/--no-montage",
               help="choose between multiple video montage or a single overlaid video",
               default=True)
-@click.option('--color-ids', 'visualization_colors', flag_value='ids', default=True)
-@click.option('--color-keypoints', 'visualization_colors', flag_value='keypoints')
+@click.option('--color-ids', 'visualization_colors', flag_value='ids', default=True,
+              help="color differentiates object identities")
+@click.option('--color-keypoints', 'visualization_colors', flag_value='keypoints',
+              help="color differentiates object's keypoints")
 def visualize(ctx, video_in, video_out, source_display_name, limit_duration, montage, visualization_colors):
     """
     Visualize MOT file(s) overlaid on a video.
@@ -177,6 +179,64 @@ def visualize(ctx, video_in, video_out, source_display_name, limit_duration, mon
         montage=montage,
         duration=limit_duration if limit_duration != -1 else None,
     )
+
+
+@cli.command()
+@click.pass_context
+@click.argument(
+    "video-in",
+    type=click.Path(exists=True, readable=True, dir_okay=False, path_type=Path),
+)
+@click.argument(
+    "video-out-dir",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path),
+)
+@click.option("--size-px", help="output video size in px", default=128)
+@click.option("--limit-duration", help="visualization duration limit in s", default=-1)
+def ego_videos(ctx, video_in, video_out_dir, size_px, limit_duration):
+    """
+    Make video cutouts with the tracked subjects in the center.
+    """
+    if len(ctx.obj["mots"]) == 0:
+        raise click.BadParameter(
+            "no input files specified"
+        )
+    elif len(ctx.obj["mots"]) > 1:
+        raise click.BadParameter(
+            "more than one input file specified, only a single input file is allowed"
+        )
+    mot = ctx.obj["mots"][0]
+    for obj_id in tqdm.tqdm((0, 1, 2, 3, 4, 5)):
+        df_xy = mot.to_dataframe().query(f'id == {obj_id} & keypoint == 1').set_index('frame').drop(['id', 'keypoint'], axis=1)
+        reader = imageio.get_reader(video_in, 'ffmpeg')
+        fps = reader.get_meta_data()['fps']
+        if limit_duration != -1:
+            max_frame = limit_duration * fps
+        else:
+            max_frame = -1
+        pad_width = int(round(size_px / 2))
+
+        writer = imageio.get_writer(video_out_dir / f'{video_in.stem}_{obj_id}{video_in.suffix}', fps=fps)
+        for i, (img, (frame, xyc)) in tqdm.tqdm(enumerate(zip(reader, df_xy[['x', 'y', 'confidence']].iterrows())),
+                                                total=len(df_xy) if max_frame == -1 else max_frame):
+            img_padded = np.pad(img, ((pad_width, pad_width),
+                                      (pad_width, pad_width),
+                                      (0, 0)))
+            x, y, c = xyc
+            if not(x == -1 or y == -1):  # else reuse img_cut from the previous frame
+                yyxx = np.array((y - size_px / 2,
+                                 y + size_px / 2,
+                                 x - size_px / 2,
+                                 x + size_px / 2))
+                yyxx += pad_width
+                ymin, ymax, xmin, xmax = yyxx.round().astype(int)
+                img_cut = img_padded[ymin:ymax, xmin:xmax]
+            assert img_cut.shape == (size_px, size_px, 3)
+            writer.append_data(img_cut)
+            if i == max_frame:
+                break
+        writer.close()
+        reader.close()
 
 
 @cli.command()

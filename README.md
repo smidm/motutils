@@ -13,8 +13,8 @@
 - saves: MOTChallenge CSV
 - `Mot`, `BboxMot` and `PoseMot` classes backed by xarray dataset with frame and id coordinates
 - export to Pandas DataFrame
-- oracle detector: fake all knowing detector based on ground truth with configurable inaccuracies
-- different classes of tracked objects: point, bounding box, pose
+- oracle detector: fake / all knowing detector based on ground truth with configurable inaccuracies
+- different classes of tracked objects: point, bounding box, object with pose
 - interpolation of missing positions
 - find mapping between MOT results and ground truth
 - visualization:
@@ -22,7 +22,7 @@
   - montage of multiple videos with results and/or ground truth
 - cli
   - visualization
-  - evaluation ()
+  - evaluation
   - mot format conversion
 
 ![visualization montage](assets/visualization_montage.jpg)
@@ -31,31 +31,33 @@ Video comparison of multiple tracking methods and the ground truth.
 
 # Installation
 
-`pip install git+https://github.com/smidm/motutils`
+`pip install motutils`
 
 # Usage
 
 ```
 $ motutils --help
+
 Usage: motutils [OPTIONS] COMMAND [ARGS]...
 
 Options:
---load-mot FILENAME             load a MOT challenge csv file(s)
---load-gt FILENAME              load ground truth from a MOT challenge csv
-file
---load-idtracker FILENAME       load IdTracker trajectories (e.g.,
-trajectories.txt)
---load-idtrackerai FILENAME     load idtracker.ai trajectories (e.g.,
-trajectories_wo_gaps.npy)
---load-sleap-analysis FILENAME  load SLEAP analysis trajectories (exported
-from sleap-label File -> Export Analysis
-HDF5)
---load-toxtrac FILENAME         load ToxTracker trajectories (e.g.,
-Tracking_0.txt)
---toxtrac-topleft-xy <INTEGER INTEGER>...
-position of the arena top left corner, see
-first tuple in the Arena line in Stats_1.txt
---help                          Show this message and exit.
+  --load-mot FILENAME             load a MOT challenge csv file(s)
+  --load-gt FILENAME              load ground truth from a MOT challenge csv
+                                  file
+  --load-idtracker FILENAME       load IdTracker trajectories (e.g.,
+                                  trajectories.txt)
+  --load-idtrackerai FILENAME     load idtracker.ai trajectories (e.g.,
+                                  trajectories_wo_gaps.npy)
+  --load-sleap-analysis FILENAME  load SLEAP analysis trajectories (exported
+                                  from sleap-label File -> Export Analysis
+                                  HDF5)
+  --load-sleap FILE               load SLEAP trajectories
+  --load-toxtrac FILENAME         load ToxTracker trajectories (e.g.,
+                                  Tracking_0.txt)
+  --toxtrac-topleft-xy <INTEGER INTEGER>...
+                                  position of the arena top left corner, see
+                                  first tuple in the Arena line in Stats_1.txt
+  --help                          Show this message and exit.
 
 Commands:
 convert    Convert any format to MOT Challenge format.
@@ -95,8 +97,11 @@ Usage: motutils visualize [OPTIONS] VIDEO_IN VIDEO_OUT
 
 Options:
   --limit-duration INTEGER  visualization duration limit in s
+  --montage / --no-montage  choose between multiple video montage or a single
+                            overlaid video
+  --color-ids               color differentiates object identities
+  --color-keypoints         color differentiates object's keypoints
   --help                    Show this message and exit.
-
 ```
 
 # Python API Quickstart
