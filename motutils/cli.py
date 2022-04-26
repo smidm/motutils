@@ -1,8 +1,9 @@
-import click
-import tqdm
-import imageio
 from pathlib import Path
+
+import click
+import imageio
 import numpy as np
+import tqdm
 
 from . import io
 from . import visualize as motutils_visualize

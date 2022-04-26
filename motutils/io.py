@@ -311,6 +311,7 @@ def eval_and_save(ground_truth, mot_results, out_csv=None, results_keypoint=None
     :param ground_truth: ground truth filename_or_buffer (MOT format), buffer or Mot object
     :param mot_results: results filename_or_buffer (MOT format), buffer or Mot
     :param out_csv: output file with a summary (filename_or_buffer or buffer)
+    :param results_keypoint: keypoint used for evaluation of keypoint/pose data against centroid ground truth
     """
     try:
         df_gt = ground_truth.to_dataframe()

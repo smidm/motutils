@@ -1,6 +1,7 @@
 import numbers
 import warnings
 from collections import Counter
+from typing import Callable, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -188,7 +189,7 @@ class Mot(object):
         count_of_valid_ids = self.ds["x"].count("id")
         print(self.ds.sel({"frame": ~count_of_valid_ids.isin([0, self.num_ids()])}))
 
-    def num_ids(self):
+    def num_ids(self) -> int:
         return len(self.ds["id"])
 
     def get_roi(self):
@@ -218,12 +219,7 @@ class Mot(object):
         del self.ds["frame"]
         self.ds = self.ds.rename({"frame_": "frame"})
 
-    def get_positions(self, frame):
-        """
-
-        :param frame:
-        :return: xarray.Dataset
-        """
+    def get_positions(self, frame: int) -> xr.Dataset:
         return self.ds.sel({"frame": frame})
 
     def get_object(self, frame, obj_id):
@@ -299,12 +295,17 @@ class Mot(object):
         self.ds["y"].loc[{"frame": frame, "id": obj_id}] = y
         self.ds["confidence"].loc[{"frame": frame, "id": obj_id}] = confidence
 
-    def match_xy(self, frame, xy, maximal_match_distance=None):
+    def match_xy(self,
+                 frame: int,
+                 xy: Tuple[int, int],
+                 maximal_match_distance: Optional[float] = None) -> Optional[xr.Dataset]:
         """
-        Match query xy to the ground truth.
+        Match query coordinate to Mot.
 
-        :param xy: tuple
-        :return: None if false positive, best matching gt row
+        :param frame: frame of the coordinate
+        :param xy: coordinate to match against
+        :param maximal_match_distance:
+        :return: None if no match otherwise best matching Mot coordinate
         """
         distance_vectors = self.ds.sel({"frame": frame}).to_dataframe()[["x", "y"]] - xy
         distances = np.sqrt((distance_vectors["x"] ** 2 + distance_vectors["y"] ** 2))
@@ -327,7 +328,7 @@ class Mot(object):
         """
         Interpolate missing (nan) positions.
 
-        :param frame: list of frame numbers or None for all frames
+        :param frames: list of frame numbers or None for all frames
         :param ids: list of ids or None for all ids
         :return: xarray.Dataset with selected frames and ids and interpolated nans
         """
@@ -357,19 +358,6 @@ class Mot(object):
 
         self.ds["x"] = self.ds.x.interpolate_na(dim="frame", use_coordinate=True)
         self.ds["y"] = self.ds.y.interpolate_na(dim="frame", use_coordinate=True)
-
-    def _get_index(self):
-        return pd.MultiIndex.from_product(
-            [
-                list(
-                    range(
-                        min(self.df.index.levels[0]), max(self.df.index.levels[0]) + 1
-                    )
-                ),
-                list(range(1, self.num_ids + 1)),
-            ],
-            names=["frame", "id"],
-        )
 
     def count_all(self):
         return np.product(self.ds["x"].shape)
@@ -469,8 +457,6 @@ class Mot(object):
         self._colors = value
 
     def _init_draw(self):
-        import matplotlib.pylab as plt
-
         # from moviepy.video.tools.drawing import circle
         # https://github.com/Zulko/moviepy/issues/1662
         from moviepy.video.tools.drawing import color_gradient
@@ -592,10 +578,13 @@ class Mot(object):
 
 
 class GtPermutationsMixin(object):
+    num_ids: Callable[[], int]
+    match_xy: Callable[[int, Tuple[int, int], Optional[float]], Optional[xr.Dataset]]
+
     def __init__(self):
         self.__permutation = {}
         self.__gt_id_to_real_permutation = {}
-        for id_ in range(self.__num_ids):
+        for id_ in range(self.num_ids()):
             self.__gt_id_to_real_permutation[id_] = id_
             self.__permutation[id_] = id_
 
@@ -631,7 +620,7 @@ class GtPermutationsMixin(object):
     def get_permutation(self, data):
         perm = {}
         for frame, id_, y, x in data:
-            original_id_, _ = self.match_gt(frame, y, x)
+            original_id_, _ = self.match_xy(frame, (x, y))
             perm[id_] = original_id_
 
         return perm

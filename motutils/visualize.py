@@ -1,12 +1,15 @@
-from typing import Optional, Union, List, Callable, Any, Tuple
+from typing import Any, Callable, List, Optional, Tuple, Union
+
 try:
     from numpy.typing import ArrayLike
 except ModuleNotFoundError:
     ArrayLike = Any
 import os
+
 import cv2  # TODO: remove dependency
 import numpy as np
-from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip, clips_array
+from moviepy.video.compositing.CompositeVideoClip import (CompositeVideoClip,
+                                                          clips_array)
 from moviepy.video.fx.resize import resize
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.video.VideoClip import ColorClip, TextClip
@@ -21,42 +24,6 @@ def process_image(get_frame_fun, t, trajectories, name, id_to_gt, fps):
     img = get_frame_fun(t).copy()
     frame = int(round((t * fps)))
     img = trajectories.draw_frame(img, frame, id_to_gt)
-    if name is not None:
-        font_size = 1.5
-        font_thickness = 2
-        text_size, _ = cv2.getTextSize(
-            name, cv2.FONT_HERSHEY_SIMPLEX, font_size, font_thickness
-        )
-        cv2.putText(
-            img,
-            name,
-            (int((img.shape[1] - text_size[0]) / 2), 60),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            font_size,
-            (255, 255, 255),
-            font_thickness,
-        )
-    cv2.putText(img, str(frame), (30, 30), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255))
-    return img
-
-
-def process_image_behavior(
-    get_frame_fun, t, mot, trapezoids, fronts, contacts, name, id_to_gt, fps
-):
-    """
-    Draw single tracker data on a frame.
-    """
-    # if id_to_gt is None:
-    #     id_to_gt = range(len(markers))  # identity mapping
-    img = get_frame_fun(t).copy()
-    frame = int(round((t * fps)))
-
-    for i in range(mot.num_ids()):
-        if trapezoids[frame][i] is not None:
-            trapezoids[frame][i].draw_to_image(img, color=(255, 0, 0), label=str(i))
-        if np.count_nonzero(contacts[frame, i] == 1) > 0:
-            fronts[frame][i].draw_to_image(img, color=(255, 255, 0))
-
     if name is not None:
         font_size = 1.5
         font_thickness = 2
@@ -95,28 +62,6 @@ def limit_size(wh, max_wh):
     return newsize
 
 
-def make_fun(trajectories, name, id_to_gt=None, fps=None):
-    return lambda gf, t: process_image(gf, t, trajectories, name, id_to_gt, fps)
-
-
-def make_fun_behavior(
-    mot, trapezoids, fronts, contacts, name=None, id_to_gt=None, fps=None
-):
-    return lambda gf, t: process_image(
-        gf, t, mot, trapezoids, fronts, name, id_to_gt, fps
-    )
-
-
-def process_image_(get_frame, time, fun, fps):
-    img = get_frame(time).copy()
-    frame = int(round((time * fps)))
-    return fun(img, frame)
-
-
-def plot_frame_to_plot_time(fun, fps):
-    return lambda get_frame, time: process_image_(get_frame, time, fun, fps)
-
-
 def visualize(
     video_file: Union[str, bytes, os.PathLike],
     out_video_file: Optional[Union[str, bytes, os.PathLike]],
@@ -145,6 +90,22 @@ def visualize(
     :param start_end_frame: optional specification of start and end frame of visualization
     :return: visualization video clip object
     """
+    def plot_frame_to_plot_time(fun: Callable[[ArrayLike, int], ArrayLike],
+                                fps: float) -> Callable[[Callable, float], ArrayLike]:
+        """
+        Change callable signature from fun(img, frame) -> img
+                                    to fun(get_frame_fun, t) -> img
+        :param fun: fun(img, frame) -> img, signature of Mot.draw_frame()
+        :param fps: clip frames per second
+        :return: signature of moviepy.VideoClip.fl: fun(get_frame_fun, t) -> img
+        """
+        def clip_fl_fun(get_frame_fun, t):
+            img = get_frame_fun(t).copy()
+            frame = int(round((t * fps)))
+            return fun(img, frame)
+
+        return clip_fl_fun
+
     if start_end_frame is None:
         start_end_frame = (0, None)
     MONTAGE_GRID_WH = [
@@ -161,19 +122,6 @@ def visualize(
     else:
         n_clips = 1
     clip = VideoFileClip(video_file)
-
-    # if names is not None:
-    #     assert len(names) == len(funs)
-    #     if 'gt' in names:
-    #         reference_idx = names.index('gt')
-    #     elif 'ground truth' in names:
-    #         reference_idx = names.index('ground truth')
-    #     else:
-    #         reference_idx = 0
-    # else:
-    #     reference_idx = 0
-    # mappings = [t.find_mapping(trajectories[reference_idx]) for t in trajectories]
-
     clips = []
     for i, fun in enumerate(funs):
         if montage:

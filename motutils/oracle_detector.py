@@ -1,8 +1,13 @@
+from typing import Callable
+
 import numpy as np
+import xarray
 from shape import BBox
 
 
 class OracleDetectorMixin(object):
+    get_positions: Callable[[int], xarray.Dataset]
+
     def __init__(
         self,
         bb_size_px=None,
